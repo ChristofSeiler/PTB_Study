@@ -1,0 +1,135 @@
+---
+title: "Gene Expression Network Analysis"
+author: Christof Seiler
+date: August, 2016
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+This Rmd file contains a minimal network analysis pipeline using the packages ``STRINGdb`` and ``BioNet``.
+
+## Install Packages
+
+Install necessary packages from bioconductor repository. Run this code only once to install packages.
+
+```{r eval=FALSE}
+source("https://bioconductor.org/biocLite.R")
+biocLite("STRINGdb")
+biocLite("BioNet")
+biocLite("DLBCL")
+install.packages(c("stringr","igraph","visNetwork"))
+```
+
+Load packages.
+
+```{r warning=FALSE,message=FALSE}
+library(STRINGdb)
+library(BioNet)
+library(DLBCL)
+library(stringr)
+library(igraph)
+library(visNetwork)
+```
+
+## Load Data
+
+Load example dataset. Replace this with your own list of pvalues.
+
+```{r}
+diff_exp = read.csv("Cuffdiff LK_2_5_11_13.csv")
+# remove no test cases
+excludeGenesFraction = sum(diff_exp$status == "NOTEST")/length(diff_exp$status)
+excludeGenesFraction
+diff_exp = diff_exp[!diff_exp$status == "NOTEST",]
+# remove NAs in fold changes
+foldChanges = as.numeric(as.character(diff_exp$log2.fold_change.))
+diff_exp$log2.fold_change. = foldChanges
+NAs = is.na(foldChanges)
+diff_exp = diff_exp[!NAs,]
+# remove Infs in fold changes
+Infs = is.infinite(diff_exp$log2.fold_change.)
+diff_exp = diff_exp[!Infs,]
+dim(diff_exp)
+plot(diff_exp$log2.fold_change.)
+```
+
+## Download Gene Network
+
+Download proteins for human species (code is 9606).
+
+Consider interaciton that are 0.9 confidence. From the STRING website: 
+
+In STRING, each protein-protein interaction is annotated with one or more 'scores'. Importantly, these scores do not indicate the strength or the specificity of the interaction. Instead, they are indicators of confidence, i.e. how likely STRING judges an interaction to be true, given the available evidence. All scores rank from 0 to 1, with 1 being the highest possible confidence. A score of 0.5 would indicate that roughly every second interaction might be erroneous (i.e., a false positive).
+
+```{r}
+string_db = STRINGdb$new(version="10", species=9606, score_threshold=900, input_directory="")
+```
+
+Check how many proteins are in the database.
+
+```{r}
+string_proteins = string_db$get_proteins()
+dim(string_proteins)
+```
+
+Map gene names to identifiers used in the database.
+
+```{r}
+mapped = string_db$map(diff_exp, "gene", removeUnmappedRows = FALSE)
+interactions = string_db$get_interactions(mapped$STRING_id)
+interactions = data.frame(from=interactions$from,to=interactions$to,combined_score=interactions$combined_score)
+dim(interactions)
+head(interactions)
+```
+
+## Find Subgraph
+
+Fit a Beta-Uniform model.
+
+```{r fig.width=12}
+pval = mapped$p_value
+names(pval) = mapped$gene
+fb = fitBumModel(pval)
+fb
+```
+
+Set the ``fdr`` parameter which can be interpreted as the FDR of the subgraph. Smaller values will produce a smaller maximum subgraph. You should try a few values (e.g. 0.05, 0.01, 0.001, ...) to obtain a reasonable small subgraph that permits biological interpretation.
+
+First we make convert the interaction table into an igraph object and make the nodes names human readible.
+
+```{r}
+network = graph_from_data_frame(interactions)
+revMappedNames = sapply(names(V(network)),
+                        function(string_id)
+                          paste(mapped[which(string_id == mapped$STRING_id),]$gene,collapse = "/")
+                        )
+V(network)$name = unlist(revMappedNames)
+```
+
+Then we search for the optimal subgraph.
+
+```{r}
+scores = scoreNodes(network, fb, fdr=0.01)
+module = runFastHeinz(network, scores)
+module
+```
+
+Differential expression between is coloured in red and green, where green shows an upregulation in the first condition and red an upregulation in second condition. The shape of the nodes depicts the score: rectangles indicate a negative score, circles a positive score.
+
+```{r fig.width=12, fig.height=12}
+par(mfrow=c(1,1))
+logFC = na.omit(mapped$log2.fold_change.)
+names(logFC) = mapped$gene
+plotModule(module, scores = scores, diff.expr = logFC)
+```
+
+Interactive visualization.
+
+```{r fig.width=12, fig.height=12}
+V(module)$label = names(V(module))
+visIgraph(module, idToLabel = FALSE)
+visIgraph(module, idToLabel = FALSE, physics = TRUE)
+```
