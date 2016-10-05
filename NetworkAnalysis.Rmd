@@ -1,5 +1,5 @@
 ---
-title: "Gene Expression Network Analysis"
+title: "Nick's Gene Expression Network Analysis"
 author: Christof Seiler
 date: August, 2016
 output: html_document
