@@ -39,7 +39,7 @@ library(visNetwork)
 Load example dataset. Replace this with your own list of pvalues.
 
 ```{r}
-diff_exp = read.csv("Cuffdiff LK_2_5_11_13.csv")
+diff_exp = read.csv("test_cases.csv")
 # remove no test cases
 excludeGenesFraction = sum(diff_exp$status == "NOTEST")/length(diff_exp$status)
 excludeGenesFraction
