@@ -2,6 +2,7 @@ source("http://bioconductor.org/biocLite.R")
 biocLite("affy")
 biocLite("oligo")
 biocLite("limma")
+install.packages("hta20stprobeset.db")
 
 library(affy)
 #Affy package doesn't work for HTA arrays, but the Oligo package has support
@@ -16,17 +17,17 @@ eset <- rma(affyRaw, target = 'core')
 write.exprs(eset,file="data_core_genes.txt")
 #output is a huge file that needs annotation.
 
-#pd.hta.2.0 is the annotation package
-biocLite("pd.hta.2.0")
-library(pd.hta.2.0)
-library(help=pd.hta.2.0)
-library(annotate)
+library(hta20stprobeset.db)
+#lists info about the probeset database
+hta20stprobeset()
 my_frame <- data.frame(exprs(eset))
-str(my_frame)
 
-load(paste0(path.package("pd.hta.2.0"), "/extdata/netaffxTranscript.rda"))
-#none of the below code appears to work, as the pd.hta.2.0 package doesn't
-#do the same things as the example package
-Annot <- data.frame(ACCNUM=sapply(contents(pd.hta.2.0ACCNUM), paste, collapse=", "), 
-                    SYMBOL=sapply(contents(pd.hta.2.0SYMBOL), paste, collapse=", "), 
-                    DESC=sapply(contents(pd.hta.2.0GENENAME), paste, collapse=", "))
+sns <- sampleNames(eset)
+
+
+
+Annot <- data.frame(ACCNUM=sapply(contents(hta20stprobesetACCNUM), paste, collapse=", "), 
+                    SYMBOL=sapply(contents(hta20stprobesetSYMBOL), paste, collapse=", "), 
+                    DESC=sapply(contents(hta20stprobesetGENENAME), paste, collapse=", "))
+
+all <- merge(Annot, my_frame, by.x=0, by.y=0, all=T)

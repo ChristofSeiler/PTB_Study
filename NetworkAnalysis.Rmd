@@ -112,7 +112,7 @@ V(network)$name = unlist(revMappedNames)
 Then we search for the optimal subgraph.
 
 ```{r}
-scores = scoreNodes(network, fb, fdr=0.01)
+scores = scoreNodes(network, fb, fdr=0.005)
 module = runFastHeinz(network, scores)
 module
 ```

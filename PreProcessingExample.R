@@ -1,0 +1,2 @@
+library(oligoData)
+data(affyExpressionFS)
