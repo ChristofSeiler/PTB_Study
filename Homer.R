@@ -14,7 +14,7 @@ library(bigmemory)
 dir <- getwd()
 fls <- list.files(dir, pattern = "ARR", full=TRUE)
 readArr(fls[[1]])
-readArr(fls)
+arr <- readArr(fls)
 
 #read in raw array data as .CEL files
 celFiles <- list.celfiles()
