@@ -1,6 +1,9 @@
 # Immunology Nick
 
-Converting the CEL files to table of log-fold changes and p-values:
+Standard mircroarray workflows on bioconductor:
 
-* http://homer.salk.edu/homer/basicTutorial/affymetrix.html
-* https://www.bioconductor.org/packages/devel/bioc/vignettes/limma/inst/doc/usersguide.pdf
+* https://www.bioconductor.org/help/workflows/arrays/
+
+We will try ``oligo``:
+
+* http://bioconductor.org/packages/release/bioc/html/oligo.html
