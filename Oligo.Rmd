@@ -1,0 +1,46 @@
+---
+title: "Oligo"
+author: Christof Seiler
+date: October, 2016
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Goal
+
+1. Load and normalize data
+2. Differential analysis
+
+## Install Packages
+
+Install necessary packages from bioconductor repository. Run this code only once to install packages.
+
+```{r eval=FALSE}
+source("https://bioconductor.org/biocLite.R")
+biocLite("oligo")
+```
+
+Load packages.
+
+```{r}
+library(oligo)
+```
+
+## Data Preparation
+
+Prepare gene expression table using ``oligo``.
+
+```{r}
+# TODO
+```
+
+## Differential Analysis
+
+Use ``limma``.
+
+```{r}
+# TODO
+```
