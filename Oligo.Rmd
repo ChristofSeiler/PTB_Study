@@ -136,6 +136,7 @@ eset = rma(rawData)
 class(eset)
 show(eset)
 exprs(eset)[1:10, 1:2]
+save(eset,file = "eset.Rdata")
 ```
 
 PCA plot of normalized expressions.
