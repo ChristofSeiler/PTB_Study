@@ -1,3 +1,4 @@
+#this script attempts to merge the metadata .ARR files with the raw data .CEL files
 source("http://bioconductor.org/biocLite.R")
 biocLite("affy")
 biocLite("oligo")
@@ -9,7 +10,8 @@ library(affy)
 setwd('~/Desktop/HTAdata')
 library(oligo)
 library(bigmemory)
-
+library(hta20stprobeset.db)
+library(AffyCompatible)
 #read in metadata from .ARR companion files
 dir <- getwd()
 fls <- list.files(dir, pattern = "ARR", full=TRUE)
@@ -25,7 +27,7 @@ eset <- rma(affyRaw, target = 'core')
 write.exprs(eset,file="data_core_genes.txt")
 #output is a huge file that needs annotation.
 
-library(hta20stprobeset.db)
+
 #lists info about the probeset database
 hta20stprobeset()
 my_frame <- data.frame(exprs(eset))
