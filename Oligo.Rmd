@@ -35,7 +35,9 @@ Load packages.
 library(ff)
 library(foreach)
 library(doMC)
-registerDoMC(4)
+n_cores = as.integer(Sys.getenv("SLURM_NTASKS"))
+n_cores
+registerDoMC(n_cores)
 library(oligo)
 library(limma)
 #library(AffyCompatible)
