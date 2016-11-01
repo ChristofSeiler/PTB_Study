@@ -26,7 +26,7 @@ biocLite("oligo")
 biocLite("limma")
 #biocLite("AffyCompatible")
 biocLite("hta20sttranscriptcluster.db")
-install.packages(c("xml2","ggfortify","magrittr","stringr","ff","foreach","doMC"))
+install.packages(c("xml2","ggfortify","magrittr","ff","foreach","doMC"))
 ```
 
 Load packages.
@@ -145,12 +145,13 @@ PCA plot of normalized expressions.
 res_pca = prcomp(t(exprs(eset)),scale. = FALSE)
 screeplot(res_pca)
 autoplot(res_pca, data = sample_table, colour = 'Infection', shape = 'Case.Control', size = 3)
+# make array names shorter for plotting
 short_name = as.character(sample_table$array_name)
-short_name = str_trunc(short_name, 
-                       nchar("Nicholas Bayless"), 
-                       "left", 
-                       ellipsis = "")
-autoplot(res_pca, data = data.frame(sample_table,short_name), colour = 'short_name', size = 3)
+short_name = gsub(x = short_name,pattern = "Nicholas Bayless_",replacement = "")
+short_name = gsub(x = short_name,pattern = "_\\(HTA-2_0\\)",replacement = "")
+rownames(sample_table) = short_name
+autoplot(res_pca, data = data.frame(sample_table,short_name), 
+         shape = FALSE, label = TRUE, label.size = 3)
 ```
 
 ### Differential Expression Analyses
