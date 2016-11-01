@@ -26,12 +26,16 @@ biocLite("oligo")
 biocLite("limma")
 #biocLite("AffyCompatible")
 biocLite("hta20sttranscriptcluster.db")
-install.packages(c("xml2","ggfortify","magrittr","stringr"))
+install.packages(c("xml2","ggfortify","magrittr","stringr","ff","foreach","doMC"))
 ```
 
 Load packages.
 
 ```{r}
+library(ff)
+library(foreach)
+library(doMC)
+registerDoMC(4)
 library(oligo)
 library(limma)
 #library(AffyCompatible)
