@@ -194,7 +194,7 @@ symbol = sapply(prob_ids,function(prob_id) {
   matching_symbol
 }) %>% unlist
 gene_table = cbind(gene_table,symbol=symbol,stringsAsFactors=FALSE)
-gene_table
+head(gene_table)
 ```
 
 This is the fraction of gene transcripts that didn't map to any gene symbols.
