@@ -32,12 +32,12 @@ install.packages(c("xml2","ggfortify","magrittr","stringr","ff","foreach","doMC"
 Load packages.
 
 ```{r}
-library(ff)
-library(foreach)
-library(doMC)
-n_cores = as.integer(Sys.getenv("SLURM_NTASKS"))
-n_cores
-registerDoMC(n_cores)
+#library(ff)
+#library(foreach)
+#library(doMC)
+#n_cores = as.integer(Sys.getenv("SLURM_NTASKS"))
+#n_cores
+#registerDoMC(n_cores)
 library(oligo)
 library(limma)
 #library(AffyCompatible)
