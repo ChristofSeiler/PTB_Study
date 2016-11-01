@@ -3,7 +3,7 @@
 #SBATCH --job-name=Oligo
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
-#SBATCH --mem-per-cpu=32GB
+#SBATCH --mem-per-cpu=48GB
 #SBATCH --time=01:00:00
 #SBATCH --partition=bigmem
 #SBATCH --qos=bigmem
