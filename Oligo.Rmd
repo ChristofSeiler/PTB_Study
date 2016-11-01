@@ -11,36 +11,195 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ## Goal
 
-1. Load and normalize data
-2. Differential analysis
+1. Load and normalize data using ``oligo``
+2. Differential analysis using ``limma``
 
-## Install Packages
+### Workflow
+
+### Install Packages
 
 Install necessary packages from bioconductor repository. Run this code only once to install packages.
 
 ```{r eval=FALSE}
 source("https://bioconductor.org/biocLite.R")
 biocLite("oligo")
+biocLite("limma")
+#biocLite("AffyCompatible")
+biocLite("hta20sttranscriptcluster.db")
+install.packages(c("xml2","ggfortify","magrittr","stringr"))
 ```
 
 Load packages.
 
 ```{r}
 library(oligo)
+library(limma)
+#library(AffyCompatible)
+library(xml2)
+library(ggfortify)
+library(magrittr)
+library(hta20sttranscriptcluster.db)
 ```
 
-## Data Preparation
+### Import Data
 
-Prepare gene expression table using ``oligo``.
+Read sample phenotype data from ARR files (which are xml files) and extract information about experimental design. 
 
 ```{r}
-# TODO
+file_names_arr = list.files("./",pattern = "ARR")
+sample_table = sapply(file_names_arr,function(file_name) {
+  xml_file = read_xml(file_name)
+  # extract array name
+  items = xml_find_all(xml_file, ".//PhysicalArray")
+  array_name = xml_attrs(items[[1]])["ArrayName"]
+  # extract conditions
+  items = xml_find_all(xml_file, ".//UserAttribute")
+  cond = c(xml_text(items),array_name)
+  names(cond) = c(xml_attrs(items[[1]])["Name"],
+                  xml_attrs(items[[2]])["Name"],
+                  "array_name")
+  cond
+}) %>% t %>% data.frame
+head(sample_table)
 ```
 
-## Differential Analysis
-
-Use ``limma``.
+Then load Affymetrix CEL files. At this stage, Bioconductor will automatically download the necessary annotation packages and install them for us. 
 
 ```{r}
-# TODO
+#celFiles = list.celfiles("./", full.names=TRUE)
+pd = as(sample_table, "AnnotatedDataFrame")
+cef_file_names = sapply(rownames(sample_table),function(file_name) {
+  length_without_exp = nchar(file_name)-4
+  paste0(".//",substr(file_name,0,length_without_exp),"_(HTA-2_0).CEL")
+})
+rawData = read.celfiles(cef_file_names,phenoData = pd,sampleNames = rownames(sample_table))
+rawData
+```
+
+This is the downloaded annotation package:
+
+```{r}
+pd.hta.2.0
+```
+
+Let's have a first look at the data. These are the samples:
+
+```{r}
+slotNames(rawData)
+sampleNames(rawData)
+```
+
+### Quality Control
+
+MA plots on the first three samples.
+
+```{r}
+MAplot(rawData[, 1:3], pairs=TRUE)
+```
+
+Accessing probe sequences.
+
+```{r}
+pmSeq = pmSequence(rawData)
+head(pmSeq)
+```
+
+The dependence of intensity on probe sequence is a well established fact on the microarray literature.
+
+```{r}
+#pmsLog2 = log2(pm(rawData))
+#coefs = getAffinitySplineCoefficients(pmsLog2, pmSeq)
+# TODO: We executing above command, we get the following error:
+# Error in model.frame.default(formula = intensities ~ design, drop.unused.levels = TRUE) : 
+#  variable lengths differ (found for 'design')
+```
+
+Probe level models.
+
+```{r}
+#fit1 = fitProbeLevelModel(rawData)
+# TODO: Some plotting
+```
+
+### Preprocessing
+
+Background subtraction, normalization and summarization using median-polish.
+
+```{r}
+eset = rma(rawData)
+class(eset)
+show(eset)
+exprs(eset)[1:10, 1:2]
+```
+
+PCA plot of normalized expressions.
+
+```{r}
+res_pca = prcomp(t(exprs(eset)),scale. = FALSE)
+screeplot(res_pca)
+autoplot(res_pca, data = sample_table, colour = 'Infection', shape = 'Case.Control', size = 3)
+short_name = as.character(sample_table$array_name)
+short_name = str_trunc(short_name, 
+                       nchar("Nicholas Bayless"), 
+                       "left", 
+                       ellipsis = "")
+autoplot(res_pca, data = data.frame(sample_table,short_name), colour = 'short_name', size = 3)
+```
+
+### Differential Expression Analyses
+
+Use ``limma`` for linear models to assess difference in expression between the two groups.
+
+```{r}
+cond = eset[["Case.Control"]]
+cond = relevel(cond, ref = "Mock")
+design = model.matrix(~ cond)
+fit = lmFit(eset, design)
+ebayes = eBayes(fit)
+lod = -log10(ebayes[["p.value"]][,2])
+head(lod)
+mtstat = ebayes[["t"]][,2]
+head(mtstat)
+```
+
+Volcano plot.
+
+```{r}
+volcanoplot(ebayes,coef=2,highlight=10)
+```
+
+The topTable command provides us a way of ranking genes for further evaluation. In the case below, we adjust for multiple testing by FDR and look at the Top-10 genes. 
+
+```{r}
+gene_table = topTable(ebayes, coef=2, adjust="fdr",number = nrow(ebayes))
+head(gene_table)
+```
+
+Map between manufacturer identifiers and gene symbols.
+
+```{r}
+e2s = toTable(hta20sttranscriptclusterSYMBOL)
+prob_ids = rownames(gene_table)
+symbol = sapply(prob_ids,function(prob_id) {
+  matching_symbol = e2s$symbol[prob_id==e2s$probe_id]
+  if(length(matching_symbol)==0) matching_symbol = "No_Symbol_Found"
+  matching_symbol
+}) %>% unlist
+gene_table = cbind(gene_table,symbol=symbol,stringsAsFactors=FALSE)
+gene_table
+```
+
+This is the fraction of gene transcripts that didn't map to any gene symbols.
+
+```{r}
+mean(gene_table$symbol=="No_Symbol_Found")
+```
+
+### Export Results
+
+Write to text file.
+
+```{r}
+write.csv(gene_table,
+          file=paste0("Case.Control_",paste(levels(cond),collapse = "_"),"_results.csv"))
 ```
