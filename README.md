@@ -33,8 +33,8 @@ Now open a new terminal and run the following commands to submit the workflow to
 
 When job is done the command ``squeue | grep ${USER}`` will return nothing. If sucessful you can find the output of the workflow in two html files:
 
-* ``Oligo.html``: contains the differential analysis results (including some quality checking)
-* ``NetworkAnalysis.html``: contains the network analysis
+1. ``Oligo.html``: contains the differential analysis results (including some quality checking)
+2. ``NetworkAnalysis.html``: contains the network analysis
 
 Intermerdicate results are save in ``eset.Rdata`` and ``Case.Control_Mock_H1N1_results.csv`` files for further local processing. To download the results to your laptop open a new terminal and run the following commands:
 
