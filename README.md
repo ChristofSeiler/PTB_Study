@@ -23,7 +23,8 @@ Here are the steps to run it on sherlock. Open a new terminal and run the follow
 Now the code is ready and all necssary R packages are installed. Before we can start the workflow, we need to upload all the .ARR and .CEL files to the sherlock cluster. For this open a new terminal and run the following commands:
 
 1. change to folder with the .ARR and .CEL files: ``cd data_folder/``
-2. upload files to sherlock (change username): ``scp *.ARR *.CEL username@sherlock:/scratch/users/username/ImmunologyNick/``
+2. upload files to sherlock (change username): 
+``scp *.ARR *.CEL username@sherlock:/scratch/users/username/ImmunologyNick/``
 
 Now switch back to the first terminal to submit a cluster job. Open new terminal and run the following commands:
 
