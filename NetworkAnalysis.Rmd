@@ -1,7 +1,7 @@
 ---
-title: "Nick's Gene Expression Network Analysis"
+title: "Gene Expression Network Analysis"
 author: Christof Seiler
-date: August, 2016
+date: November, 2016
 output: html_document
 ---
 
@@ -19,8 +19,8 @@ Install necessary packages from bioconductor repository. Run this code only once
 source("https://bioconductor.org/biocLite.R")
 biocLite("STRINGdb")
 biocLite("BioNet")
-biocLite("DLBCL")
-install.packages(c("stringr","igraph","visNetwork"))
+biocLite("KEGGREST")
+install.packages(c("stringr","magrittr","igraph","visNetwork"))
 ```
 
 Load packages.
@@ -28,32 +28,26 @@ Load packages.
 ```{r warning=FALSE,message=FALSE}
 library(STRINGdb)
 library(BioNet)
-library(DLBCL)
+library(KEGGREST)
 library(stringr)
+library(magrittr)
 library(igraph)
 library(visNetwork)
 ```
 
 ## Load Data
 
-Load example dataset. Replace this with your own list of pvalues.
+Remove genes with NA values. As indicated in the [DESeq2 documentation](https://www.bioconductor.org/packages/devel/bioc/vignettes/DESeq2/inst/doc/DESeq2.pdf), some values in the results table can be set to NA for one of the following reasons:
+
+1. If within a row, all samples have zero counts, the baseMean column will be zero, and the log2 fold change estimates, p-value and adjusted p-value will all be set to NA.
+2. If a row contains a sample with an extreme count outlier then the p-value and adjusted p-value will be set to NA. These outlier counts are detected by Cook's distance.
+3. If a row is filtered by automatic independent filtering, for having a low mean normalized count, then only the adjusted p-value will be set to NA.
 
 ```{r}
-diff_exp = read.csv("test_cases.csv")
-# remove no test cases
-excludeGenesFraction = sum(diff_exp$status == "NOTEST")/length(diff_exp$status)
-excludeGenesFraction
-diff_exp = diff_exp[!diff_exp$status == "NOTEST",]
-# remove NAs in fold changes
-foldChanges = as.numeric(as.character(diff_exp$log2.fold_change.))
-diff_exp$log2.fold_change. = foldChanges
-NAs = is.na(foldChanges)
-diff_exp = diff_exp[!NAs,]
-# remove Infs in fold changes
-Infs = is.infinite(diff_exp$log2.fold_change.)
-diff_exp = diff_exp[!Infs,]
+diff_exp = read.csv("Case.Control_Mock_H1N1_results.csv")
 dim(diff_exp)
-plot(diff_exp$log2.fold_change.)
+diff_exp = na.omit(diff_exp)
+dim(diff_exp)
 ```
 
 ## Download Gene Network
@@ -78,7 +72,7 @@ dim(string_proteins)
 Map gene names to identifiers used in the database.
 
 ```{r}
-mapped = string_db$map(diff_exp, "gene", removeUnmappedRows = FALSE)
+mapped = string_db$map(diff_exp, "symbol", removeUnmappedRows = FALSE)
 interactions = string_db$get_interactions(mapped$STRING_id)
 interactions = data.frame(from=interactions$from,to=interactions$to,combined_score=interactions$combined_score)
 dim(interactions)
@@ -90,8 +84,8 @@ head(interactions)
 Fit a Beta-Uniform model.
 
 ```{r fig.width=12}
-pval = mapped$p_value
-names(pval) = mapped$gene
+pval = mapped$P.Value
+names(pval) = mapped$STRING_id
 fb = fitBumModel(pval)
 fb
 ```
@@ -102,34 +96,97 @@ First we make convert the interaction table into an igraph object and make the n
 
 ```{r}
 network = graph_from_data_frame(interactions)
-revMappedNames = sapply(names(V(network)),
-                        function(string_id)
-                          paste(mapped[which(string_id == mapped$STRING_id),]$gene,collapse = "/")
-                        )
-V(network)$name = unlist(revMappedNames)
 ```
 
 Then we search for the optimal subgraph.
 
 ```{r}
-scores = scoreNodes(network, fb, fdr=0.005)
+fdr = 0.0000001
+scores = scoreNodes(network, fb, fdr=fdr)
 module = runFastHeinz(network, scores)
 module
 ```
 
-Differential expression between is coloured in red and green, where green shows an upregulation in the first condition and red an upregulation in second condition. The shape of the nodes depicts the score: rectangles indicate a negative score, circles a positive score.
+Here the list of nodes within that module. Map gene id to gene name.
+
+```{r}
+gene_table = mapped[which(mapped$STRING_id %in% names(V(module))),]
+head(gene_table)
+```
+
+Differential expression is coloured in red (upregulated) and green (downregulated). Scores are represented with shapes: rectangles are negative and circles are positive scores.
 
 ```{r fig.width=12, fig.height=12}
-par(mfrow=c(1,1))
-logFC = na.omit(mapped$log2.fold_change.)
-names(logFC) = mapped$gene
-plotModule(module, scores = scores, diff.expr = logFC)
+node_symbol = sapply(names(V(module)),function(node_name) 
+  gene_table$symbol[which(gene_table$STRING_id == node_name)])
+if(length(V(module)) > 0) {
+  par(mfrow=c(1,1))
+  logFC = mapped$logFC
+  names(logFC) = mapped$STRING_id
+  plotModule(module, diff.expr = logFC, labels = node_symbol)
+} else {
+  message("no signficant subgraph found")
+}
 ```
 
 Interactive visualization.
 
 ```{r fig.width=12, fig.height=12}
-V(module)$label = names(V(module))
-visIgraph(module, idToLabel = FALSE)
-visIgraph(module, idToLabel = FALSE, physics = TRUE)
+if(length(V(module)) > 0) {
+  V(module)$label = node_symbol
+  visIgraph(module, idToLabel = FALSE)
+} else {
+  message("no signficant subgraph found")
+}
+```
+
+Interactive visualization with physics animation.
+
+```{r fig.width=12, fig.height=12}
+if(length(V(module)) > 0) {
+  V(module)$label = node_symbol
+  visIgraph(module, idToLabel = FALSE, physics = TRUE)
+} else {
+  message("no signficant subgraph found")
+}
+```
+
+## Compare to Known Pathways
+
+Calculate number of genes that our network on known pathways have in common.
+
+```{r}
+# get human pathways form kegg database
+pathways = keggList("pathway", "hsa")
+human_pathways = sub("path:", "", names(pathways))
+# kegg server only allow 10 request at the time
+n_request = ceiling(length(human_pathways)/10)
+chunk = function(x, n) split(x, sort(rank(x) %% n))
+chunks_pathways = chunk(1:length(human_pathways),n_request)
+# download from kegg server
+list_chunk_pathways = lapply(chunks_pathways,function(one_chunk_pathways) {
+  cat("download chunk:",one_chunk_pathways,"\n")
+  pathway_ids = human_pathways[one_chunk_pathways]
+  setNames(keggGet(pathway_ids), pathway_ids)
+  })
+# flatten list of lists
+all_pathways = unlist(list_chunk_pathways, recursive=FALSE)
+# check for all human pathways
+gene_symbol_unique = unique(gene_table$symbol)
+gene_overlap = sapply(all_pathways,function(pathway) {
+  genes_one_pathway = pathway$GENE[c(FALSE, TRUE)]
+  detected = sapply(genes_one_pathway,function(pathway_gene_str) {
+    pathway_gene = (strsplit(pathway_gene_str,";") %>% unlist())[1]
+    sum(str_detect(pathway_gene,gene_symbol_unique))
+  })
+  list(name=pathway$NAME,overlap=mean(detected))
+}) %>% t
+ordered_ids = order(unlist(gene_overlap[,"overlap"]),decreasing = TRUE)
+head(gene_overlap[ordered_ids,],10)
+```
+
+## Session Info
+
+```{r session_info}
+sessionInfo()
 ```

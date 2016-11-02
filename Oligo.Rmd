@@ -1,7 +1,7 @@
 ---
 title: "Oligo"
 author: Christof Seiler
-date: October, 2016
+date: November, 2016
 output: html_document
 ---
 
@@ -14,7 +14,7 @@ knitr::opts_chunk$set(echo = TRUE)
 1. Load and normalize data using ``oligo``
 2. Differential analysis using ``limma``
 
-### Workflow
+## Workflow
 
 ### Install Packages
 
@@ -210,4 +210,10 @@ Write to text file.
 ```{r}
 write.csv(gene_table,
           file=paste0("Case.Control_",paste(levels(cond),collapse = "_"),"_results.csv"))
+```
+
+## Session Info
+
+```{r session_info}
+sessionInfo()
 ```

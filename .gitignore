@@ -1,2 +1,6 @@
 
 *.Rdata
+
+*_results.csv
+
+*.html
