@@ -25,7 +25,20 @@ Now the code is ready and all necssary R packages are installed. Before we can s
 1. change to folder with the .ARR and .CEL files: ``cd data_folder/``
 2. upload files to sherlock: ``scp *.ARR *.CEL username@sherlock:/scratch/users/username/ImmunologyNick/``
 
-Now switch back to the first terminal to submit a cluster job. Open new terminal and run the following commands:
+Now open a new terminal and run the following commands to submit the workflow to the cluster:
 
 1. switch to your code folder: ``cd $SCRATCH/ImmunologyNick/``
 2. start workflow: ``make Oligo.html``
+3. check progress: ``squeue | grep ${USER}``
+
+When job is done the command ``squeue | grep ${USER}`` will return nothing. If sucessful you can find the output of the workflow in two html files:
+
+* ``Oligo.html``: contains the differential analysis results (including some quality checking)
+* ``NetworkAnalysis.html``: contains the network analysis
+
+Intermerdicate results are save in ``eset.Rdata`` and ``Case.Control_Mock_H1N1_results.csv`` files for further local processing. To download the results to your laptop open a new terminal and run the following commands:
+
+1. change to download folder: ``cd download_folder``
+2. download from sherlock: ``scp username@sherlock:/scratch/users/username/ImmunologyNick/*.html .``
+
+Done.
