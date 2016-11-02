@@ -12,6 +12,6 @@ check:
 
 # clean up
 clean:
-	Oligo.html
+	rm Oligo.html
 	rm slurm-*.out
 	rm *_results.csv
