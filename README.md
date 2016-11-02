@@ -10,7 +10,7 @@ We will follow the ``oligo`` user guide:
 
 ## Howto Use this Repository
 
-The code works best on the Stanford sherlock cluster. We will need about need about 24 GB of RAM. On a single core machine the workflow will talk around 30 minutes to compmlete.
+The code works best on the Stanford sherlock cluster. We will need about about 24 GB of RAM. On a single core machine the entire workflow including differential and network analysis will take about 30 minutes to complete.
 
 Here are the steps to run it on sherlock. Open a new terminal and run the following commands:
 
