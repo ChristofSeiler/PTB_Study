@@ -3,6 +3,8 @@ title: "Oligo"
 author: Christof Seiler
 date: November, 2016
 output: html_document
+params:
+  plan: "plan_1"
 ---
 
 ```{r setup, include=FALSE}
@@ -16,7 +18,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ## Workflow
 
-### Install Packages
+## Install Packages
 
 Install necessary packages from bioconductor repository. Run this code only once to install packages.
 
@@ -47,7 +49,7 @@ library(magrittr)
 library(hta20sttranscriptcluster.db)
 ```
 
-### Import Data
+## Import Data
 
 Read sample phenotype data from ARR files (which are xml files) and extract information about experimental design. 
 
@@ -95,7 +97,7 @@ slotNames(rawData)
 sampleNames(rawData)
 ```
 
-### Quality Control
+## Quality Control
 
 MA plots on the first three samples.
 
@@ -127,7 +129,7 @@ Probe level models.
 # TODO: Some plotting
 ```
 
-### Preprocessing
+## Preprocessing
 
 Background subtraction, normalization and summarization using median-polish.
 
@@ -154,13 +156,37 @@ autoplot(res_pca, data = data.frame(sample_table,short_name),
          shape = FALSE, label = TRUE, label.size = 3)
 ```
 
-### Differential Expression Analyses
+## Differential Expression Analyses
 
 Use ``limma`` for linear models to assess difference in expression between the two groups.
 
 ```{r}
-cond = eset[["Case.Control"]]
-cond = relevel(cond, ref = "Mock")
+if(params$plan == "plan_1") {
+  # plan 1: Differences at baseline (only using the mock samples, case vs. control)
+  eset = eset[,eset$Case.Control == "Mock"]
+} else if(params$plan == "plan_2") {
+  # plan 2: Differences of ratios between + and - (H1N1 and mock), case vs. control
+  array_name = as.character(eset[["array_name"]])
+  sample_table_ratio = read.csv("sample_table_ratio.csv")
+  sample_table_ratio$Mock = as.character(sample_table_ratio$Mock)
+  sample_table_ratio$H1N1 = as.character(sample_table_ratio$H1N1)
+  mock_ids = sapply(sample_table_ratio$Mock,function(mock_name) which(mock_name == array_name))
+  h1n1_ids = sapply(sample_table_ratio$H1N1,function(h1n1_name) which(h1n1_name == array_name))
+  pairs = data.frame(mock=array_name[mock_ids],
+                     h1n1=array_name[h1n1_ids],
+                     mock_id=mock_ids,
+                     h1n1_id=h1n1_ids,
+                     mock_cc=eset[["Infection"]][mock_ids],
+                     h1n1_cc=eset[["Infection"]][h1n1_ids],
+                     Infection=eset[["Infection"]][mock_ids])
+  rownames(pairs) = 1:nrow(pairs)
+  ratio = exprs(eset)[,pairs$h1n1_id] / exprs(eset)[,pairs$mock_id]
+  exprs(eset) = ratio
+  phenoData(eset) = as(pairs, "AnnotatedDataFrame")
+}
+# case vs. control
+cond = eset[["Infection"]]
+cond = relevel(cond, ref = "Case")
 design = model.matrix(~ cond)
 fit = lmFit(eset, design)
 ebayes = eBayes(fit)
@@ -203,7 +229,7 @@ This is the fraction of gene transcripts that didn't map to any gene symbols.
 mean(gene_table$symbol=="No_Symbol_Found")
 ```
 
-### Export Results
+## Export Results
 
 Write to text file.
 

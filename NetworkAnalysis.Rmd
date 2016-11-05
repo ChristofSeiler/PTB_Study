@@ -48,6 +48,26 @@ diff_exp = read.csv("Case.Control_Mock_H1N1_results.csv")
 dim(diff_exp)
 diff_exp = na.omit(diff_exp)
 dim(diff_exp)
+diff_exp$X = as.character(diff_exp$X)
+diff_exp$symbol = as.character(diff_exp$symbol)
+```
+
+Remove transcipts that were not mapped to any gene symbol.
+
+```{r}
+diff_exp = subset(diff_exp,symbol != "No_Symbol_Found")
+```
+
+There are some multiple transcript to gene matches resulting in rows with the same gene sybmol. We follow a conservative approach and replace redundant genes by their maximum $p$-value.
+
+```{r}
+table(diff_exp$symbol) %>% sort(., decreasing = TRUE) %>% head
+gene_names = table(diff_exp$symbol) %>% names
+diff_exp = lapply(gene_names,function(gene_name) {
+  duplicated = diff_exp[which(diff_exp$symbol == gene_name),]
+  duplicated[which.max(duplicated$P.Value),]
+}) %>% do.call(rbind,.)
+
 ```
 
 ## Download Gene Network
