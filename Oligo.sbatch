@@ -11,8 +11,17 @@ module load R/3.3.0
 
 start=`date +%s`
 
-R -e "rmarkdown::render('Oligo.Rmd')"
-R -e "rmarkdown::render('NetworkAnalysis.Rmd')"
+# plan 1
+plan=plan_1
+fdr=0.0000001
+R -e "rmarkdown::render('Oligo.Rmd',output_file = 'Oligo_${plan}.html',params = list(plan = '${plan}'))"
+R -e "rmarkdown::render('NetworkAnalysis.Rmd',output_file = 'NetworkAnalysis_${plan}.html',params = list(plan = '${plan}',fdr = '${fdr}'))"
+
+# plan 2
+plan=plan_2
+fdr=0.0000001
+R -e "rmarkdown::render('Oligo.Rmd',output_file = 'Oligo_${plan}.html',params = list(plan = '${plan}'))"
+R -e "rmarkdown::render('NetworkAnalysis.Rmd',output_file = 'NetworkAnalysis_${plan}.html',params = list(plan = '${plan}',fdr = '${fdr}'))"
 
 end=`date +%s`
 runtime=$((end-start))

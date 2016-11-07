@@ -3,6 +3,9 @@ title: "Gene Expression Network Analysis"
 author: Christof Seiler
 date: November, 2016
 output: html_document
+params:
+  plan: "plan_1"
+  fdr: "0.0000001"
 ---
 
 ```{r setup, include=FALSE}
@@ -44,7 +47,9 @@ Remove genes with NA values. As indicated in the [DESeq2 documentation](https://
 3. If a row is filtered by automatic independent filtering, for having a low mean normalized count, then only the adjusted p-value will be set to NA.
 
 ```{r}
-diff_exp = read.csv("Case.Control_Mock_H1N1_results.csv")
+file_name_results = paste0(params$plan,"_results.csv")
+file_name_results
+diff_exp = read.csv(file_name_results)
 dim(diff_exp)
 diff_exp = na.omit(diff_exp)
 dim(diff_exp)
@@ -121,7 +126,8 @@ network = graph_from_data_frame(interactions)
 Then we search for the optimal subgraph.
 
 ```{r}
-fdr = 0.0000001
+fdr = as.numeric(params$fdr)
+fdr
 scores = scoreNodes(network, fb, fdr=fdr)
 module = runFastHeinz(network, scores)
 module

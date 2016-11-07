@@ -161,6 +161,7 @@ autoplot(res_pca, data = data.frame(sample_table,short_name),
 Use ``limma`` for linear models to assess difference in expression between the two groups.
 
 ```{r}
+params$plan
 if(params$plan == "plan_1") {
   # plan 1: Differences at baseline (only using the mock samples, case vs. control)
   eset = eset[,eset$Case.Control == "Mock"]
@@ -234,8 +235,9 @@ mean(gene_table$symbol=="No_Symbol_Found")
 Write to text file.
 
 ```{r}
-write.csv(gene_table,
-          file=paste0("Case.Control_",paste(levels(cond),collapse = "_"),"_results.csv"))
+file_name_results = paste0(params$plan,"_results.csv")
+file_name_results
+write.csv(gene_table,file = file_name_results)
 ```
 
 ## Session Info
