@@ -72,7 +72,6 @@ diff_exp = lapply(gene_names,function(gene_name) {
   duplicated = diff_exp[which(diff_exp$symbol == gene_name),]
   duplicated[which.max(duplicated$P.Value),]
 }) %>% do.call(rbind,.)
-
 ```
 
 ## Download Gene Network
@@ -143,6 +142,7 @@ head(gene_table)
 Differential expression is coloured in red (upregulated) and green (downregulated). Scores are represented with shapes: rectangles are negative and circles are positive scores.
 
 ```{r fig.width=12, fig.height=12}
+set.seed(1234)
 node_symbol = sapply(names(V(module)),function(node_name) 
   gene_table$symbol[which(gene_table$STRING_id == node_name)])
 if(length(V(module)) > 0) {
