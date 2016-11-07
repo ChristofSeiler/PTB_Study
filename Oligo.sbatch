@@ -11,17 +11,19 @@ module load R/3.3.0
 
 start=`date +%s`
 
-# plan 1
-plan=plan_1
-fdr=0.0000001
-R -e "rmarkdown::render('Oligo.Rmd',output_file = 'Oligo_${plan}.html',params = list(plan = '${plan}'))"
-R -e "rmarkdown::render('NetworkAnalysis.Rmd',output_file = 'NetworkAnalysis_${plan}.html',params = list(plan = '${plan}',fdr = '${fdr}'))"
+# preprocessing and differential analysis
+R -e "rmarkdown::render('Oligo.Rmd')"
 
-# plan 2
-plan=plan_2
+# network analysis
 fdr=0.0000001
-R -e "rmarkdown::render('Oligo.Rmd',output_file = 'Oligo_${plan}.html',params = list(plan = '${plan}'))"
-R -e "rmarkdown::render('NetworkAnalysis.Rmd',output_file = 'NetworkAnalysis_${plan}.html',params = list(plan = '${plan}',fdr = '${fdr}'))"
+for csv_file_name in *_results.csv
+do
+    length=${#csv_file_name}
+    end=`expr $length-12`
+    prefix=${csv_file_name:0:end}
+    echo ${prefix} at fdr = $fdr
+    echo R -e "rmarkdown::render('NetworkAnalysis.Rmd',output_file = '${prefix}_NetworkAnalysis.html',params = list(csv_file_name = '${csv_file_name}',fdr = '${fdr}'))"
+done
 
 end=`date +%s`
 runtime=$((end-start))
