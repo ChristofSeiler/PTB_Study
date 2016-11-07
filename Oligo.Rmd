@@ -3,8 +3,6 @@ title: "Oligo"
 author: Christof Seiler
 date: November, 2016
 output: html_document
-params:
-  plan: "plan_1"
 ---
 
 ```{r setup, include=FALSE}
@@ -28,7 +26,7 @@ biocLite("oligo")
 biocLite("limma")
 #biocLite("AffyCompatible")
 biocLite("hta20sttranscriptcluster.db")
-install.packages(c("xml2","ggfortify","magrittr","ff","foreach","doMC"))
+install.packages(c("xml2","ggfortify","magrittr","ff","foreach","doMC","statmod"))
 ```
 
 Load packages.
@@ -47,6 +45,7 @@ library(xml2)
 library(ggfortify)
 library(magrittr)
 library(hta20sttranscriptcluster.db)
+library(statmod)
 ```
 
 ## Import Data
@@ -161,73 +160,118 @@ autoplot(res_pca, data = data.frame(sample_table,short_name),
 Use ``limma`` for linear models to assess difference in expression between the two groups.
 
 ```{r}
-params$plan
-if(params$plan == "plan_1") {
-  # plan 1: Differences at baseline (only using the mock samples, case vs. control)
-  eset = eset[,eset$Case.Control == "Mock"]
-} else if(params$plan == "plan_2") {
-  # plan 2: Differences of ratios between + and - (H1N1 and mock), case vs. control
-  array_name = as.character(eset[["array_name"]])
-  sample_table_ratio = read.csv("sample_table_ratio.csv")
-  sample_table_ratio$Mock = as.character(sample_table_ratio$Mock)
-  sample_table_ratio$H1N1 = as.character(sample_table_ratio$H1N1)
-  mock_ids = sapply(sample_table_ratio$Mock,function(mock_name) which(mock_name == array_name))
-  h1n1_ids = sapply(sample_table_ratio$H1N1,function(h1n1_name) which(h1n1_name == array_name))
-  pairs = data.frame(mock=array_name[mock_ids],
-                     h1n1=array_name[h1n1_ids],
-                     mock_id=mock_ids,
-                     h1n1_id=h1n1_ids,
-                     mock_cc=eset[["Infection"]][mock_ids],
-                     h1n1_cc=eset[["Infection"]][h1n1_ids],
-                     Infection=eset[["Infection"]][mock_ids])
-  rownames(pairs) = 1:nrow(pairs)
-  ratio = exprs(eset)[,pairs$h1n1_id] / exprs(eset)[,pairs$mock_id]
-  exprs(eset) = ratio
-  phenoData(eset) = as(pairs, "AnnotatedDataFrame")
+array_name = eset[["array_name"]]
+# find paired samples
+sample_table_ratio = read.csv("sample_table_ratio.csv")
+sample_table_ratio$Mock = as.character(sample_table_ratio$Mock)
+sample_table_ratio$H1N1 = as.character(sample_table_ratio$H1N1)
+mock_ids = sapply(sample_table_ratio$Mock,function(mock_name) which(mock_name == array_name))
+h1n1_ids = sapply(sample_table_ratio$H1N1,function(h1n1_name) which(h1n1_name == array_name))
+# encode paired samples
+subject = rep(NA,length(array_name))
+for(id in 1:length(mock_ids)) {
+  subject[c(mock_ids[id],h1n1_ids[id])] = id
 }
-# case vs. control
-cond = eset[["Infection"]]
-cond = relevel(cond, ref = "Case")
-design = model.matrix(~ cond)
-fit = lmFit(eset, design)
-ebayes = eBayes(fit)
-lod = -log10(ebayes[["p.value"]][,2])
-head(lod)
-mtstat = ebayes[["t"]][,2]
-head(mtstat)
+# combine
+targets = data.frame(array_name,
+                     subject=as.factor(subject),
+                     condition=eset[["Infection"]],
+                     treatment=eset[["Case.Control"]])
+targets$array_name = as.character(targets$array_name)
+levels(targets$condition)[levels(targets$condition)=="Control"] = "Term"
+levels(targets$condition)[levels(targets$condition)=="Case"] = "Preterm"
+rownames(targets) = 1:nrow(targets)
+# exclude sample that are not paired
+paired_ids = which(!is.na(targets$subject))
+targets = targets[paired_ids,]
+exprs(eset) = exprs(eset)[,paired_ids]
+phenoData(eset) = as(targets, "AnnotatedDataFrame")
+# design
+combo = factor(paste(targets$condition,targets$treatment,sep="_"))
+design = model.matrix(~ 0 + combo)
+colnames(design) = levels(combo)
 ```
 
-Volcano plot.
+Estimate the correlation between measurements made on the same subject.
+
+From [limma vignette (page 50)](https://www.bioconductor.org/packages/devel/bioc/vignettes/limma/inst/doc/usersguide.pdf):
+"This experiment has two levels of variability. First, there is the variation from person to person, which we call the between-subject strata. Then there is the variability of repeat measurements made on the same subject, the within-subject strata. The between-subject variation is always expected to be larger than within-subject, because the latter is adjusted for baseline differences between the subjects. Here the comparison between tissues can be made within subjects, and hence should be more precise than the comparison between diseased and normal, which must be made between subjects."
 
 ```{r}
-volcanoplot(ebayes,coef=2,highlight=10)
+corfit = duplicateCorrelation(eset,design,block=targets$subject)
 ```
 
-The topTable command provides us a way of ranking genes for further evaluation. In the case below, we adjust for multiple testing by FDR and look at the Top-10 genes. 
+Then this inter-subject correlation is input into the linear model fit.
 
 ```{r}
-gene_table = topTable(ebayes, coef=2, adjust="fdr",number = nrow(ebayes))
-head(gene_table)
+fit = lmFit(eset,design,block=targets$subject,correlation=corfit$consensus)
+```
+
+Now we can make any comparisons between the experimental conditions.
+
+```{r}
+cm = makeContrasts(
+  Preterm_vs_Term_for_H1N1 = Preterm_H1N1-Term_H1N1,
+  Preterm_vs_Term_for_Mock = Preterm_Mock-Term_Mock,
+  H1N1_vs_Mock_for_Preterm = Preterm_H1N1-Preterm_Mock,
+  H1N1_vs_Mock_for_Term = Term_H1N1-Term_Mock,
+  levels=design)
+```
+
+Then compute these contrasts and moderated t-tests.
+
+```{r}
+fit = contrasts.fit(fit, cm)
+fit = eBayes(fit)
+```
+
+The topTable command provides us a way of ranking genes for further evaluation. In the case below, we adjust for multiple testing by FDR. Save results in a list of tables.
+
+```{r}
+gene_table_list = lapply(colnames(cm),function(cm_name) {
+  gene_table = topTable(fit, coef=cm_name, adjust="BH", number = nrow(fit))
+  print(head(gene_table))
+  gene_table
+})
+```
+
+Volcano plots for quality control.
+
+```{r}
+for(cm_name in colnames(cm)) {
+  cat(cm_name,"\n")
+  volcanoplot(fit,coef = cm_name,highlight = 10)
+}
 ```
 
 Map between manufacturer identifiers and gene symbols.
 
 ```{r}
 e2s = toTable(hta20sttranscriptclusterSYMBOL)
-prob_ids = rownames(gene_table)
-symbol = sapply(prob_ids,function(prob_id) {
-  matching_symbol = e2s$symbol[prob_id==e2s$probe_id]
-  if(length(matching_symbol)==0) matching_symbol = "No_Symbol_Found"
-  matching_symbol
-}) %>% unlist
-gene_table = cbind(gene_table,symbol=symbol,stringsAsFactors=FALSE)
-head(gene_table)
+gene_table_list = lapply(gene_table_list,function(gene_table) {
+  prob_ids = rownames(gene_table)
+  symbol = sapply(prob_ids,function(prob_id) {
+    matching_symbol = e2s$symbol[prob_id==e2s$probe_id]
+    if(length(matching_symbol)==0) matching_symbol = "No_Symbol_Found"
+    matching_symbol
+  }) %>% unlist
+  gene_table = cbind(gene_table,symbol=symbol,stringsAsFactors=FALSE)
+  print(head(gene_table))
+  gene_table
+})
 ```
 
 This is the fraction of gene transcripts that didn't map to any gene symbols.
 
 ```{r}
-mean(gene_table$symbol=="No_Symbol_Found")
+for(i in 1:length(gene_table_list)) {
+  cat(colnames(cm)[i],"\n",
+    "fraction of symbols not found:",
+    mean(gene_table_list[[i]]$symbol=="No_Symbol_Found"),"\n",
+    "number of significant genes below FDR of 0.05:",
+    sum(gene_table_list[[i]]$adj.P.Val < 0.05),
+    "\n")
+}
 ```
 
 ## Export Results
@@ -235,9 +279,12 @@ mean(gene_table$symbol=="No_Symbol_Found")
 Write to text file.
 
 ```{r}
-file_name_results = paste0(params$plan,"_results.csv")
-file_name_results
-write.csv(gene_table,file = file_name_results)
+write.csv(targets,file = "targets.csv")
+for(i in 1:length(gene_table_list)) {
+  file_name_results = paste0(colnames(cm)[i],"_results.csv")
+  cat("writting:",file_name_results,"\n")
+  write.csv(gene_table_list[[i]],file = file_name_results)
+}
 ```
 
 ## Session Info

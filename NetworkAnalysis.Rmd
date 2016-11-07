@@ -4,7 +4,7 @@ author: Christof Seiler
 date: November, 2016
 output: html_document
 params:
-  plan: "plan_1"
+  csv_file_name: "Preterm_vs_Term_for_H1N1_results.csv"
   fdr: "0.0000001"
 ---
 
@@ -47,9 +47,8 @@ Remove genes with NA values. As indicated in the [DESeq2 documentation](https://
 3. If a row is filtered by automatic independent filtering, for having a low mean normalized count, then only the adjusted p-value will be set to NA.
 
 ```{r}
-file_name_results = paste0(params$plan,"_results.csv")
-file_name_results
-diff_exp = read.csv(file_name_results)
+params$csv_file_name
+diff_exp = read.csv(params$csv_file_name)
 dim(diff_exp)
 diff_exp = na.omit(diff_exp)
 dim(diff_exp)
