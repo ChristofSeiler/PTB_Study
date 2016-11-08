@@ -1,5 +1,5 @@
 # differential analysis
-Oligo.html: Oligo.sbatch Oligo.Rmd
+Oligo.html: Oligo.sbatch Oligo.Rmd NetworkAnalysis.Rmd
 	sbatch Oligo.sbatch
 
 # install and download resources
@@ -13,5 +13,6 @@ check:
 # clean up
 clean:
 	rm Oligo.html
+	rm *_results.html
 	rm slurm-*.out
 	rm *_results.csv
