@@ -4,8 +4,8 @@ author: Christof Seiler
 date: November, 2016
 output: html_document
 params:
-  csv_file_name: "Preterm_vs_Term_for_H1N1_results.csv"
-  fdr: "0.0000001"
+  csv_file_name: "H1N1_vs_Mock_for_Preterm_results.csv"
+  fdr: "0.001"
 ---
 
 ```{r setup, include=FALSE}
