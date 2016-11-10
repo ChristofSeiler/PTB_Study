@@ -36,6 +36,11 @@ prefix=H1N1_vs_Mock_for_Term
 fdr=0.000000001
 R -e "rmarkdown::render('NetworkAnalysis.Rmd',output_file = '${prefix}_NetworkAnalysis.html',params = list(csv_file_name = '${prefix}_results.csv',fdr = '${fdr}'))"
 
+# paired ratio
+prefix=Preterm_vs_Term_for_Ratio_H1N1_Mock
+fdr=0.1
+R -e "rmarkdown::render('NetworkAnalysis.Rmd',output_file = '${prefix}_NetworkAnalysis.html',params = list(csv_file_name = '${prefix}_results.csv',fdr = '${fdr}'))"
+
 end=`date +%s`
 runtime=$((end-start))
 echo runtime: $runtime sec.
