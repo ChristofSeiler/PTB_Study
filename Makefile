@@ -16,3 +16,4 @@ clean:
 	rm *_NetworkAnalysis.html
 	rm slurm-*.out
 	rm *_results.csv
+	rm targets.csv
