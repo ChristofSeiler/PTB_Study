@@ -14,8 +14,6 @@ knitr::opts_chunk$set(echo = TRUE)
 1. Load and normalize data using ``oligo``
 2. Differential analysis using ``limma``
 
-## Workflow
-
 ## Install Packages
 
 Install necessary packages from bioconductor repository. Run this code only once to install packages.
@@ -155,9 +153,9 @@ autoplot(res_pca, data = data.frame(sample_table,short_name),
          shape = FALSE, label = TRUE, label.size = 3)
 ```
 
-## Differential Expression Analyses - Two Factors
+## Differential Expression Analyses
 
-Use ``limma`` for linear models to assess difference in expression between the two groups.
+Use ``limma`` for linear models to assess difference in expression.
 
 ```{r}
 array_name = eset[["array_name"]]
@@ -215,6 +213,7 @@ cm = makeContrasts(
   Preterm_vs_Term_for_Mock = Preterm_Mock-Term_Mock,
   H1N1_vs_Mock_for_Preterm = Preterm_H1N1-Preterm_Mock,
   H1N1_vs_Mock_for_Term = Term_H1N1-Term_Mock,
+  H1N1_vs_Mock_for_Preterm_vs_H1N1_vs_Mock_for_Term = (Preterm_H1N1-Preterm_Mock)-(Term_H1N1-Term_Mock),
   levels=design)
 ```
 
@@ -273,33 +272,6 @@ for(i in 1:length(gene_table_list)) {
     sum(gene_table_list[[i]]$adj.P.Val < 0.05),
     "\n")
 }
-```
-
-## Differential Expression Analyses - Paired
-
-To calculate the ratio, we subtract the log expression counts between Mock from H1N1 paired samples.
-
-```{r}
-pairs = sapply(levels(eset[["subject"]]),function(id) {
-  mock_id = which(eset[["subject"]] == id & eset[["treatment"]] == "Mock")
-  h1n1_id = which(eset[["subject"]] == id & eset[["treatment"]] == "H1N1")
-  condition = as.character(eset[["condition"]][mock_id])
-  c(mock_id=mock_id,h1n1_id=h1n1_id,condition=condition)
-}) %>% t %>% data.frame
-pairs$condition = relevel(pairs$condition,"Term")
-ratio = exprs(eset)[,pairs$h1n1_id] - exprs(eset)[,pairs$mock_id]
-exprs(eset) = ratio
-phenoData(eset) = as(pairs, "AnnotatedDataFrame")
-# linear model fit
-condition = pairs$condition
-design = model.matrix(~ condition)
-fit = lmFit(eset, design)
-fit = eBayes(fit)
-paired_gene_table = topTable(fit, coef="conditionPreterm", adjust="BH", number = nrow(fit))
-paired_gene_table = map_gene_symbol(paired_gene_table)
-head(paired_gene_table)
-mean(paired_gene_table$symbol=="No_Symbol_Found")
-sum(paired_gene_table$adj.P.Val < 0.05)
 ```
 
 ## Export Results

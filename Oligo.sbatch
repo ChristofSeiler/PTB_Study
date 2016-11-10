@@ -14,7 +14,7 @@ start=`date +%s`
 # preprocessing and differential analysis
 R -e "rmarkdown::render('Oligo.Rmd')"
 
-# network analysis for 4 different contrasts
+# network analysis for 5 contrasts
 
 # contrast 1
 prefix=Preterm_vs_Term_for_H1N1
@@ -36,8 +36,8 @@ prefix=H1N1_vs_Mock_for_Term
 fdr=0.000000001
 R -e "rmarkdown::render('NetworkAnalysis.Rmd',output_file = '${prefix}_NetworkAnalysis.html',params = list(csv_file_name = '${prefix}_results.csv',fdr = '${fdr}'))"
 
-# paired ratio
-prefix=Preterm_vs_Term_for_Ratio_H1N1_Mock
+# contrast 5
+prefix=H1N1_vs_Mock_for_Preterm_vs_H1N1_vs_Mock_for_Term
 fdr=0.1
 R -e "rmarkdown::render('NetworkAnalysis.Rmd',output_file = '${prefix}_NetworkAnalysis.html',params = list(csv_file_name = '${prefix}_results.csv',fdr = '${fdr}'))"
 
