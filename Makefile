@@ -13,6 +13,6 @@ check:
 # clean up
 clean:
 	rm Oligo.html
-	rm *_results.html
+	rm *_NetworkAnalysis.html
 	rm slurm-*.out
 	rm *_results.csv
