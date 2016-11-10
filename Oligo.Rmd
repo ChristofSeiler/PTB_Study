@@ -285,9 +285,6 @@ for(i in 1:length(gene_table_list)) {
   cat("writting:",file_name_results,"\n")
   write.csv(gene_table_list[[i]],file = file_name_results)
 }
-file_name_results = "Preterm_vs_Term_for_Ratio_H1N1_Mock_results.csv"
-cat("writting:",file_name_results)
-write.csv(paired_gene_table,file = file_name_results)
 ```
 
 ## Session Info
