@@ -155,7 +155,7 @@ autoplot(res_pca, data = data.frame(sample_table,short_name),
          shape = FALSE, label = TRUE, label.size = 3)
 ```
 
-## Differential Expression Analyses
+## Differential Expression Analyses - Two Factors
 
 Use ``limma`` for linear models to assess difference in expression between the two groups.
 
@@ -248,7 +248,7 @@ Map between manufacturer identifiers and gene symbols.
 
 ```{r}
 e2s = toTable(hta20sttranscriptclusterSYMBOL)
-gene_table_list = lapply(gene_table_list,function(gene_table) {
+map_gene_symbol = function(gene_table) {
   prob_ids = rownames(gene_table)
   symbol = sapply(prob_ids,function(prob_id) {
     matching_symbol = e2s$symbol[prob_id==e2s$probe_id]
@@ -257,8 +257,9 @@ gene_table_list = lapply(gene_table_list,function(gene_table) {
   }) %>% unlist
   gene_table = cbind(gene_table,symbol=symbol,stringsAsFactors=FALSE)
   print(head(gene_table))
-  gene_table
-})
+  gene_table  
+}
+gene_table_list = lapply(gene_table_list,map_gene_symbol)
 ```
 
 This is the fraction of gene transcripts that didn't map to any gene symbols.
@@ -274,6 +275,33 @@ for(i in 1:length(gene_table_list)) {
 }
 ```
 
+## Differential Expression Analyses - Paired
+
+To calculate the ratio, we subtract the log expression counts between Mock from H1N1 paired samples.
+
+```{r}
+pairs = sapply(levels(eset[["subject"]]),function(id) {
+  mock_id = which(eset[["subject"]] == id & eset[["treatment"]] == "Mock")
+  h1n1_id = which(eset[["subject"]] == id & eset[["treatment"]] == "H1N1")
+  condition = as.character(eset[["condition"]][mock_id])
+  c(mock_id=mock_id,h1n1_id=h1n1_id,condition=condition)
+}) %>% t %>% data.frame
+pairs$condition = relevel(pairs$condition,"Term")
+ratio = exprs(eset)[,pairs$h1n1_id] - exprs(eset)[,pairs$mock_id]
+exprs(eset) = ratio
+phenoData(eset) = as(pairs, "AnnotatedDataFrame")
+# linear model fit
+condition = pairs$condition
+design = model.matrix(~ condition)
+fit = lmFit(eset, design)
+fit = eBayes(fit)
+paired_gene_table = topTable(fit, coef="conditionPreterm", adjust="BH", number = nrow(fit))
+paired_gene_table = map_gene_symbol(paired_gene_table)
+head(paired_gene_table)
+mean(paired_gene_table$symbol=="No_Symbol_Found")
+sum(paired_gene_table$adj.P.Val < 0.05)
+```
+
 ## Export Results
 
 Write to text file.
@@ -285,6 +313,9 @@ for(i in 1:length(gene_table_list)) {
   cat("writting:",file_name_results,"\n")
   write.csv(gene_table_list[[i]],file = file_name_results)
 }
+file_name_results = "Preterm_vs_Term_for_Ratio_H1N1_Mock_results.csv"
+cat("writting:",file_name_results)
+write.csv(paired_gene_table,file = file_name_results)
 ```
 
 ## Session Info
