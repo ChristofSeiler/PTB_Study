@@ -282,10 +282,19 @@ for(i in 1:length(gene_table_list)) {
 The last contrast could also be modeled with a fixed effect model.
 
 ```{r}
+# create design matrix
 H1N1_vs_Mock_for_Preterm = as.numeric( targets$condition=="Preterm" & targets$treatment=="H1N1")
 H1N1_vs_Mock_for_Term = as.numeric( targets$condition=="Term" & targets$treatment=="H1N1")
 Subject = targets$subject
 design = model.matrix(~ Subject + H1N1_vs_Mock_for_Preterm + H1N1_vs_Mock_for_Term)
+colnames(design)[1] = "Intercept"
+# # correct using negative control probes (not working: not enough conrol genes)
+# negative_control_genes = c("GAPDH","ACTB","UBB")
+# ids = sapply(negative_control_genes,function(gene) which(gene == e2s$symbol))
+# negative_control_probes = lapply(ids,function(id) e2s[id,]) %>% do.call(rbind,.)
+# ctl = rownames(exprs(eset)) %in% negative_control_probes$probe_id
+# exprs(eset) = RUV1(t(exprs(eset)),eta = 1,ctl = ctl) %>% t
+# estimate
 fit = lmFit(eset,design)
 cm = makeContrasts(H1N1_vs_Mock_for_Preterm-H1N1_vs_Mock_for_Term,levels = design)
 fit = contrasts.fit(fit, cm)
@@ -296,9 +305,10 @@ gene_table = topTable(fit,
                       number = nrow(fit))
 hist(gene_table$P.Value)
 # re-estimate the p-value
-gene_table_new = fdrtool(gene_table$t, statistic= "normal", plot = T)
-hist(gene_table_new$pval)
-sum(p.adjust(gene_table_new$pval, method = "BH") < 0.05)
+gene_table$P.Value = fdrtool(gene_table$t, statistic= "normal", plot = T)$pval
+gene_table$adj.P.Val = p.adjust(gene_table$P.Value, method = "BH")
+hist(gene_table$P.Value)
+sum(gene_table$P.Value < 0.05)
 ```
 
 ## Export Results

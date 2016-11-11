@@ -23,7 +23,7 @@ source("https://bioconductor.org/biocLite.R")
 biocLite("STRINGdb")
 biocLite("BioNet")
 biocLite("KEGGREST")
-install.packages(c("stringr","magrittr","igraph","visNetwork"))
+install.packages(c("stringr","magrittr","igraph","visNetwork","fdrtool"))
 ```
 
 Load packages.
@@ -36,6 +36,7 @@ library(stringr)
 library(magrittr)
 library(igraph)
 library(visNetwork)
+library(fdrtool)
 ```
 
 ## Load Data
@@ -54,6 +55,13 @@ diff_exp = na.omit(diff_exp)
 dim(diff_exp)
 diff_exp$X = as.character(diff_exp$X)
 diff_exp$symbol = as.character(diff_exp$symbol)
+```
+
+Use ``fdrtool`` to re-estimate p-value distribution.
+
+```{r fig.height=8}
+diff_exp$P.Value = fdrtool(diff_exp$t, statistic= "normal", plot = T)$pval
+diff_exp$adj.P.Val = p.adjust(diff_exp$P.Value, method = "BH")
 ```
 
 Remove transcipts that were not mapped to any gene symbol.
