@@ -47,7 +47,7 @@ Done.
 
 Some of the p-value distributions are hill shaped or monotone increasing. They should be uniform in the null case. Or have a peak on the left in case of the alternative case.
 
-According to https://support.bioconductor.org/p/71438/, hill shaped distribution are caused by a is wrong dispersion estimate during empirical Bayes and can be be fixed:
+According to https://support.bioconductor.org/p/71438/, hill shaped distribution are caused by a wrong dispersion estimate during empirical Bayes and can be be fixed:
 
 * Efron: https://arxiv.org/abs/0808.0572
 * Efron's book on large inference in chapter 6
