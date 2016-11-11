@@ -42,3 +42,16 @@ Intermerdicate results are save in ``eset.Rdata`` and ``Case.Control_Mock_H1N1_r
 2. download from sherlock: ``scp username@sherlock:/scratch/users/username/ImmunologyNick/*.html .``
 
 Done.
+
+## Problem with P-Value Distribution
+
+Some of the p-value distributions are hill shaped or monotone increasing. They should be uniform in the null case. Or have a peak on the left in case of the alternative case.
+
+According to https://support.bioconductor.org/p/71438/, hill shaped distribution are caused by a is wrong dispersion estimate during empirical Bayes and can be be fixed:
+
+* Efron: https://arxiv.org/abs/0808.0572
+* Efron's book on large inference chapter 
+* Recent paper: https://www.degruyter.com/view/j/sagmb.2014.13.issue-6/sagmb-2013-0074/sagmb-2013-0074.xml
+* Multiple dispersion parameters: http://www-huber.embl.de/pub/pdf/Reyes2013.pdf
+
+According to https://support.bioconductor.org/p/71438/ and https://support.bioconductor.org/p/35556/, monotone increasing histogram might in fact be due to unexplained covariates. Or maybe outlier? Or batch effect? Can only be fixed by removing outliers?
