@@ -55,4 +55,4 @@ According to https://support.bioconductor.org/p/71438/, hill shaped distribution
 * Recent paper: https://www.degruyter.com/view/j/sagmb.2014.13.issue-6/sagmb-2013-0074/sagmb-2013-0074.xml
 * Multiple dispersion parameters: http://www-huber.embl.de/pub/pdf/Reyes2013.pdf
 
-According to https://support.bioconductor.org/p/71438/ and https://support.bioconductor.org/p/35556/, monotone increasing histogram might in fact be due to unexplained covariates. Or maybe outlier? Or batch effect? Can this be fixed by removing outliers?
+According to https://support.bioconductor.org/p/71438/ and https://support.bioconductor.org/p/35556/, monotone increasing histogram might in fact be due to unexplained covariates.
