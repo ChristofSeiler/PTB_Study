@@ -52,7 +52,7 @@ According to https://support.bioconductor.org/p/71438/, hill shaped distribution
 * Efron: https://arxiv.org/abs/0808.0572
 * Efron's book on large inference in chapter 6
 * Lecture notes (section 5): http://www-huber.embl.de/users/klaus/Teaching/Testing-lab.pdf
-* Recent paper: https://www.degruyter.com/view/j/sagmb.2014.13.issue-6/sagmb-2013-0074/sagmb-2013-0074.xml
+* Recent paper: [P-value calibration for multiple testing problems in genomics](https://www.degruyter.com/view/j/sagmb.2014.13.issue-6/sagmb-2013-0074/sagmb-2013-0074.xml)
 * Multiple dispersion parameters: http://www-huber.embl.de/pub/pdf/Reyes2013.pdf
 
 According to https://support.bioconductor.org/p/71438/ and https://support.bioconductor.org/p/35556/, monotone increasing histogram might in fact be due to unexplained covariates.
