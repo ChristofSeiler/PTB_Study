@@ -47,7 +47,9 @@ Done.
 
 Some of the p-value distributions are hill shaped or monotone increasing. They should be uniform in the null case. Or have a peak on the left in case of the alternative case.
 
-According to https://support.bioconductor.org/p/71438/, hill shaped distribution are caused by a wrong dispersion estimate during empirical Bayes and can be be fixed using the package ``fdrtool``. Here some background material:
+### Hill Shaped
+
+According to https://support.bioconductor.org/p/71438/, hill shaped distribution are caused by a wrong dispersion estimate during empirical Bayes and can be fixed using the package ``fdrtool``. Here some background material:
 
 * Efron: [Microarrays, Empirical Bayes and the Two-Groups Model](https://arxiv.org/abs/0808.0572)
 * Efron's book on large inference in chapter 6
@@ -55,4 +57,8 @@ According to https://support.bioconductor.org/p/71438/, hill shaped distribution
 * Recent paper: [P-value calibration for multiple testing problems in genomics](https://www.degruyter.com/view/j/sagmb.2014.13.issue-6/sagmb-2013-0074/sagmb-2013-0074.xml)
 * Multiple dispersion parameters: http://www-huber.embl.de/pub/pdf/Reyes2013.pdf
 
-According to https://support.bioconductor.org/p/71438/ and https://support.bioconductor.org/p/35556/, monotone increasing histogram might in fact be due to unexplained covariates.
+### Right Skewed
+
+According to https://support.bioconductor.org/p/71438/ and https://support.bioconductor.org/p/35556/, monotone increasing histogram might in fact be due to unexplained covariates. The package ``RUVSeq`` might help. Here is the related paper (section 2.2)
+
+* [Using control genes to correct for unwanted variation in microarray data](http://biostatistics.oxfordjournals.org/content/13/3/539.full)
