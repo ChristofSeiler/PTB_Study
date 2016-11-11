@@ -59,6 +59,6 @@ According to https://support.bioconductor.org/p/71438/, hill shaped distribution
 
 ### Right Skewed
 
-According to https://support.bioconductor.org/p/71438/ and https://support.bioconductor.org/p/35556/, monotone increasing histogram might in fact be due to unexplained covariates. The package ``RUVSeq`` might help. Here is the related paper (section 2.2)
+According to https://support.bioconductor.org/p/71438/ and https://support.bioconductor.org/p/35556/, monotone increasing histogram might in fact be due to unexplained covariates. The package ``RUVSeq`` might help. Here is the related paper (section 2.2):
 
 * [Using control genes to correct for unwanted variation in microarray data](http://biostatistics.oxfordjournals.org/content/13/3/539.full)
