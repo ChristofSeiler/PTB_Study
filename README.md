@@ -50,7 +50,7 @@ Some of the p-value distributions are hill shaped or monotone increasing. They s
 According to https://support.bioconductor.org/p/71438/, hill shaped distribution are caused by a is wrong dispersion estimate during empirical Bayes and can be be fixed:
 
 * Efron: https://arxiv.org/abs/0808.0572
-* Efron's book on large inference chapter 
+* Efron's book on large inference in chapter 6
 * Recent paper: https://www.degruyter.com/view/j/sagmb.2014.13.issue-6/sagmb-2013-0074/sagmb-2013-0074.xml
 * Multiple dispersion parameters: http://www-huber.embl.de/pub/pdf/Reyes2013.pdf
 
