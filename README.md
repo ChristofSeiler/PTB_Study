@@ -45,7 +45,7 @@ Done.
 
 ## Problem with P-Value Distribution
 
-Some of the p-value distributions are hill shaped or monotone increasing. They should be uniform in the null case. Or have a peak on the left in case of the alternative case.
+Some of the p-value distributions are hill shaped or monotone increasing. They should be uniform in the null case. Or have spike near zero in case of differentially expressed genes.
 
 ### Hill Shaped
 
