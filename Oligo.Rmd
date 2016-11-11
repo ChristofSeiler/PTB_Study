@@ -24,7 +24,7 @@ biocLite("oligo")
 biocLite("limma")
 #biocLite("AffyCompatible")
 biocLite("hta20sttranscriptcluster.db")
-install.packages(c("xml2","ggfortify","magrittr","ff","foreach","doMC","statmod"))
+install.packages(c("xml2","ggfortify","magrittr","ff","foreach","doMC","statmod","fdrtool"))
 ```
 
 Load packages.
@@ -44,6 +44,7 @@ library(ggfortify)
 library(magrittr)
 library(hta20sttranscriptcluster.db)
 library(statmod)
+library(fdrtool)
 ```
 
 ## Import Data
@@ -154,6 +155,8 @@ autoplot(res_pca, data = data.frame(sample_table,short_name),
 ```
 
 ## Differential Expression Analyses
+
+### Mixed Effect Model
 
 Use ``limma`` for linear models to assess difference in expression.
 
@@ -272,6 +275,30 @@ for(i in 1:length(gene_table_list)) {
     sum(gene_table_list[[i]]$adj.P.Val < 0.05),
     "\n")
 }
+```
+
+### Fixed Effect Model
+
+The last contrast could also be modeled with a fixed effect model.
+
+```{r}
+H1N1_vs_Mock_for_Preterm = as.numeric( targets$condition=="Preterm" & targets$treatment=="H1N1")
+H1N1_vs_Mock_for_Term = as.numeric( targets$condition=="Term" & targets$treatment=="H1N1")
+Subject = targets$subject
+design = model.matrix(~ Subject + H1N1_vs_Mock_for_Preterm + H1N1_vs_Mock_for_Term)
+fit = lmFit(eset,design)
+cm = makeContrasts(H1N1_vs_Mock_for_Preterm-H1N1_vs_Mock_for_Term,levels = design)
+fit = contrasts.fit(fit, cm)
+fit = eBayes(fit)
+gene_table = topTable(fit, 
+                      coef="H1N1_vs_Mock_for_Preterm - H1N1_vs_Mock_for_Term", 
+                      adjust="BH",
+                      number = nrow(fit))
+hist(gene_table$P.Value)
+# re-estimate the p-value
+gene_table_new = fdrtool(gene_table$t, statistic= "normal", plot = T)
+hist(gene_table_new$pval)
+sum(p.adjust(gene_table_new$pval, method = "BH") < 0.05)
 ```
 
 ## Export Results
