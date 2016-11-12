@@ -337,8 +337,9 @@ gene_table_list = lapply(gene_table_list,add_z_score)
 
 Power analysis using false discovery rate.
 
-```{r fig.width=8}
+```{r fig.width=9}
 for(i in 1:length(gene_table_list)) {
+  cat(names(gene_table_list)[i],"\n")
   invisible(
     locfdr(gene_table_list[[i]]$z,plot = 4)
   )
@@ -355,13 +356,14 @@ Expected false discovery when increasing the sample size by factor of 2.
 
 Use ``fdrtool`` to re-estimate p-value distribution.
 
-```{r fig.height=8}
-re_estimate_pvalues = function(gene_table) {
-  gene_table$P.Value = fdrtool(gene_table$z, statistic= "normal", plot = T)$pval
-  gene_table$adj.P.Val = p.adjust(gene_table$P.Value, method = "BH")
-  gene_table
-}
-gene_table_list = lapply(gene_table_list,re_estimate_pvalues)
+```{r fig.height=9}
+# Not improving the results
+# re_estimate_pvalues = function(gene_table) {
+#   gene_table$P.Value = fdrtool(gene_table$z, statistic= "normal", plot = T)$pval
+#   gene_table$adj.P.Val = p.adjust(gene_table$P.Value, method = "BH")
+#   gene_table
+# }
+# gene_table_list = lapply(gene_table_list,re_estimate_pvalues)
 ```
 
 ## Export Results
