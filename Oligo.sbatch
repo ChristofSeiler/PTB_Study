@@ -5,7 +5,8 @@
 #SBATCH --ntasks-per-node=1
 #SBATCH --mem-per-cpu=32GB
 #SBATCH --time=04:00:00
-#SBATCH --partition=normal
+#SBATCH --partition=bigmem
+#SBATCH --qos=bigmem
 
 module load R/3.3.0
 
