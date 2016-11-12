@@ -17,3 +17,4 @@ clean:
 	rm slurm-*.out
 	rm *_results.csv
 	rm targets.csv
+	rm eset.Rdata
