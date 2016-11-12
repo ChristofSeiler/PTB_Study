@@ -295,20 +295,18 @@ colnames(design)[1] = "Intercept"
 # ctl = rownames(exprs(eset)) %in% negative_control_probes$probe_id
 # exprs(eset) = RUV1(t(exprs(eset)),eta = 1,ctl = ctl) %>% t
 # estimate
-fit = lmFit(eset,design)
-cm = makeContrasts(H1N1_vs_Mock_for_Preterm-H1N1_vs_Mock_for_Term,levels = design)
-fit = contrasts.fit(fit, cm)
-fit = eBayes(fit)
-gene_table = topTable(fit, 
-                      coef="H1N1_vs_Mock_for_Preterm - H1N1_vs_Mock_for_Term", 
+fit2 = lmFit(eset,design)
+cm2 = makeContrasts(H1N1_vs_Mock_for_Preterm-H1N1_vs_Mock_for_Term,levels = design)
+fit2 = contrasts.fit(fit2, cm2)
+fit2 = eBayes(fit2)
+cm2_name = "H1N1_vs_Mock_for_Preterm - H1N1_vs_Mock_for_Term"
+gene_table2 = topTable(fit2,
+                      coef=cm2_name,
                       adjust="BH",
-                      number = nrow(fit))
-hist(gene_table$P.Value)
-# re-estimate the p-value
-gene_table$P.Value = fdrtool(gene_table$t, statistic= "normal", plot = T)$pval
-gene_table$adj.P.Val = p.adjust(gene_table$P.Value, method = "BH")
-hist(gene_table$P.Value)
-sum(gene_table$P.Value < 0.05)
+                      number = nrow(fit2))
+volcanoplot(fit2,coef = cm2_name,highlight = 10)
+mean(gene_table2$symbol=="No_Symbol_Found")
+sum(gene_table2$P.Value < 0.05)
 ```
 
 ## Export Results
@@ -322,6 +320,7 @@ for(i in 1:length(gene_table_list)) {
   cat("writting:",file_name_results,"\n")
   write.csv(gene_table_list[[i]],file = file_name_results)
 }
+write.csv(gene_table2,file = "H1N1_vs_Mock_for_Preterm_vs_H1N1_vs_Mock_for_Term_fixed_results.csv")
 ```
 
 ## Session Info
