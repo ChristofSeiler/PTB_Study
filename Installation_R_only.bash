@@ -13,4 +13,4 @@ source ~/.bash_profile
 
 # install R/Bioconductor packages
 module load R/3.3.0
-R -e "source(\"https://bioconductor.org/biocLite.R\"); biocLite(c(\"oligo\",\"limma\",\"hta20sttranscriptcluster.db\",\"BiocParallel\",\"STRINGdb\",\"BioNet\",\"KEGGREST\"),suppressUpdates=TRUE); install.packages(c(\"pheatmap\",\"RColorBrewer\",\"ggplot2\",\"stringr\",\"igraph\",\"visNetwork\",\"rmarkdown\",\"xml2\",\"ggfortify\",\"magrittr\",\"ff\",\"foreach\",\"doMC\",\"statmod\",\"fdrtool\"),repos='http://cran.us.r-project.org')"
+R -e "source(\"https://bioconductor.org/biocLite.R\"); biocLite(c(\"oligo\",\"limma\",\"hta20sttranscriptcluster.db\",\"BiocParallel\",\"STRINGdb\",\"BioNet\",\"KEGGREST\"),suppressUpdates=TRUE); install.packages(c(\"pheatmap\",\"RColorBrewer\",\"ggplot2\",\"stringr\",\"igraph\",\"visNetwork\",\"rmarkdown\",\"xml2\",\"ggfortify\",\"magrittr\",\"ff\",\"foreach\",\"doMC\",\"statmod\",\"fdrtool\",\"locfdr\"),repos='http://cran.us.r-project.org')"

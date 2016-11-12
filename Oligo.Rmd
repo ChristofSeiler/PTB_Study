@@ -24,7 +24,7 @@ biocLite("oligo")
 biocLite("limma")
 #biocLite("AffyCompatible")
 biocLite("hta20sttranscriptcluster.db")
-install.packages(c("xml2","ggfortify","magrittr","ff","foreach","doMC","statmod","fdrtool"))
+install.packages(c("xml2","ggfortify","magrittr","ff","foreach","doMC","statmod","fdrtool","locfdr"))
 ```
 
 Load packages.
@@ -45,6 +45,7 @@ library(magrittr)
 library(hta20sttranscriptcluster.db)
 library(statmod)
 library(fdrtool)
+library(locfdr)
 ```
 
 ## Import Data
@@ -264,27 +265,14 @@ map_gene_symbol = function(gene_table) {
 gene_table_list = lapply(gene_table_list,map_gene_symbol)
 ```
 
-This is the fraction of gene transcripts that didn't map to any gene symbols.
-
-```{r}
-for(i in 1:length(gene_table_list)) {
-  cat(colnames(cm)[i],"\n",
-    "fraction of symbols not found:",
-    mean(gene_table_list[[i]]$symbol=="No_Symbol_Found"),"\n",
-    "number of significant genes below FDR of 0.05:",
-    sum(gene_table_list[[i]]$adj.P.Val < 0.05),
-    "\n")
-}
-```
-
 ### Fixed Effect Model
 
 The last contrast could also be modeled with a fixed effect model.
 
 ```{r}
 # create design matrix
-H1N1_vs_Mock_for_Preterm = as.numeric( targets$condition=="Preterm" & targets$treatment=="H1N1")
-H1N1_vs_Mock_for_Term = as.numeric( targets$condition=="Term" & targets$treatment=="H1N1")
+H1N1_vs_Mock_for_Preterm = as.numeric(targets$condition=="Preterm" & targets$treatment=="H1N1")
+H1N1_vs_Mock_for_Term = as.numeric(targets$condition=="Term" & targets$treatment=="H1N1")
 Subject = targets$subject
 design = model.matrix(~ Subject + H1N1_vs_Mock_for_Preterm + H1N1_vs_Mock_for_Term)
 colnames(design)[1] = "Intercept"
@@ -305,8 +293,75 @@ gene_table2 = topTable(fit2,
                       adjust="BH",
                       number = nrow(fit2))
 volcanoplot(fit2,coef = cm2_name,highlight = 10)
-mean(gene_table2$symbol=="No_Symbol_Found")
-sum(gene_table2$P.Value < 0.05)
+gene_table2 = map_gene_symbol(gene_table2)
+```
+
+### Collect Results
+
+For convinience collect both mixed and fixed effects result into one list.
+
+```{r}
+gene_table_list = append(gene_table_list,list(gene_table2))
+names(gene_table_list) = c(colnames(cm),
+                           "H1N1_vs_Mock_for_Preterm_vs_H1N1_vs_Mock_for_Term_fixed")
+```
+
+This is the fraction of gene transcripts that didn't map to any gene symbols.
+
+```{r}
+for(i in 1:length(gene_table_list)) {
+  cat(names(gene_table_list)[i],"\n",
+    "fraction of symbols not found:",
+    mean(gene_table_list[[i]]$symbol=="No_Symbol_Found"),"\n",
+    "number of significant genes below FDR of 0.05:",
+    sum(gene_table_list[[i]]$adj.P.Val < 0.05),
+    "\n")
+}
+```
+
+## Power Analysis
+
+Add z-score column to gene tables.
+
+```{r}
+# create inf entries
+add_z_score = function(gene_table) {
+  z = qnorm(pt(gene_table$t,df = ncol(exprs(eset))-2))
+  z[is.infinite(z)] = NA
+  z[is.na(z)] = max(z,na.rm = TRUE) 
+  gene_table$z = z
+  gene_table
+}
+gene_table_list = lapply(gene_table_list,add_z_score)
+```
+
+Power analysis using false discovery rate.
+
+```{r fig.width=8}
+for(i in 1:length(gene_table_list)) {
+  invisible(
+    locfdr(gene_table_list[[i]]$z,plot = 4)
+  )
+}
+```
+
+Expected false discovery when increasing the sample size by factor of 2.
+
+```{r}
+# TODO
+```
+
+## Re-Estimate P-Values
+
+Use ``fdrtool`` to re-estimate p-value distribution.
+
+```{r fig.height=8}
+re_estimate_pvalues = function(gene_table) {
+  gene_table$P.Value = fdrtool(gene_table$z, statistic= "normal", plot = T)$pval
+  gene_table$adj.P.Val = p.adjust(gene_table$P.Value, method = "BH")
+  gene_table
+}
+gene_table_list = lapply(gene_table_list,re_estimate_pvalues)
 ```
 
 ## Export Results
@@ -316,11 +371,10 @@ Write to text file.
 ```{r}
 write.csv(targets,file = "targets.csv")
 for(i in 1:length(gene_table_list)) {
-  file_name_results = paste0(colnames(cm)[i],"_results.csv")
+  file_name_results = paste0(names(gene_table_list)[i],"_results.csv")
   cat("writting:",file_name_results,"\n")
   write.csv(gene_table_list[[i]],file = file_name_results)
 }
-write.csv(gene_table2,file = "H1N1_vs_Mock_for_Preterm_vs_H1N1_vs_Mock_for_Term_fixed_results.csv")
 ```
 
 ## Session Info
