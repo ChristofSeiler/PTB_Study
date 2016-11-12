@@ -4,7 +4,7 @@
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
 #SBATCH --mem-per-cpu=32GB
-#SBATCH --time=04:00:00
+#SBATCH --time=02:00:00
 #SBATCH --partition=bigmem
 #SBATCH --qos=bigmem
 
