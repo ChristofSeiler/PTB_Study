@@ -164,7 +164,7 @@ Use ``limma`` for linear models to assess difference in expression.
 ```{r}
 array_name = eset[["array_name"]]
 # find paired samples
-sample_table_ratio = read.csv("sample_table_ratio.csv")
+sample_table_ratio = read.csv("sample_table_ratio_reduced.csv")
 sample_table_ratio$Mock = as.character(sample_table_ratio$Mock)
 sample_table_ratio$H1N1 = as.character(sample_table_ratio$H1N1)
 mock_ids = sapply(sample_table_ratio$Mock,function(mock_name) which(mock_name == array_name))
