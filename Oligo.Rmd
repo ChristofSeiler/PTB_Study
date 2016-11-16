@@ -164,7 +164,7 @@ Use ``limma`` for linear models to assess difference in expression.
 ```{r}
 array_name = eset[["array_name"]]
 # find paired samples
-sample_table_ratio = read.csv("sample_table_ratio_reduced.csv")
+sample_table_ratio = read.csv("sample_table_ratio.csv")
 sample_table_ratio$Mock = as.character(sample_table_ratio$Mock)
 sample_table_ratio$H1N1 = as.character(sample_table_ratio$H1N1)
 mock_ids = sapply(sample_table_ratio$Mock,function(mock_name) which(mock_name == array_name))
@@ -296,6 +296,52 @@ volcanoplot(fit2,coef = cm2_name,highlight = 10)
 gene_table2 = map_gene_symbol(gene_table2)
 ```
 
+Visualize the differences. The p-value distribution indicates that there might be a unexplained covariate.
+
+```{r}
+# prepare sample table
+sample_pairs = sapply(unique(targets$subject),function(subject_id) {
+  subject_pair_ids = which(targets$subject==subject_id)
+  mock_id = subject_pair_ids[targets$treatment[subject_pair_ids]=="Mock"]
+  h1n1_id = subject_pair_ids[targets$treatment[subject_pair_ids]=="H1N1"]
+  c(h1n1_id=h1n1_id,mock_id=mock_id)
+}) %>% t %>% data.frame
+sample_pairs = data.frame(h1n1_id=sample_pairs$h1n1_id,
+           mock_id=sample_pairs$mock_id,
+           h1n1=targets[sample_pairs$h1n1_id,],
+           mock=targets[sample_pairs$mock_id,])
+sample_pairs = sample_pairs[,-c(4,8)]
+rownames(sample_pairs) = NULL
+# prepare expression matrix
+exprs_eset = exprs(eset)
+exprs_eset_diff = matrix(nrow = nrow(exprs_eset),ncol = nrow(sample_pairs))
+for(i in 1:ncol(exprs_eset_diff)) {
+  exprs_eset_diff[,i] = 
+    exprs_eset[,sample_pairs$h1n1_id[i]]-
+    exprs_eset[,sample_pairs$mock_id[i]]
+}
+# make array names shorter for plotting
+make_pretty = function(array_name) {
+  short_name = as.character(array_name)
+  short_name = gsub(x = short_name,pattern = "Nicholas Bayless_",replacement = "")
+  short_name = gsub(x = short_name,pattern = "_\\(HTA-2_0\\)",replacement = "")
+  #short_name = gsub(x = short_name,pattern = "H1N1 ",replacement = "+")
+  #short_name = gsub(x = short_name,pattern = "US ",replacement = "-")
+  short_name = gsub(x = short_name,pattern = "_",replacement = "")
+  #short_name = gsub(x = short_name,pattern = " ",replacement = "")
+  short_name
+}
+short_name = paste(make_pretty(sample_pairs$h1n1.array_name),
+      "-",
+      make_pretty(sample_pairs$mock.array_name))
+# PCA plot of difference expression
+colnames(exprs_eset_diff) = short_name
+res_pca = prcomp(t(exprs_eset_diff),scale. = FALSE)
+screeplot(res_pca)
+autoplot(res_pca, data = sample_pairs, colour = 'mock.condition', size = 3)
+autoplot(res_pca, shape = FALSE, label = TRUE, label.size = 3)
+```
+
 ### Collect Results
 
 For convinience collect both mixed and fixed effects result into one list.
@@ -338,8 +384,8 @@ gene_table_list = lapply(gene_table_list,add_z_score)
 Power analysis using false discovery rate.
 
 ```{r fig.width=9}
+names(gene_table_list)
 for(i in 1:length(gene_table_list)) {
-  cat(names(gene_table_list)[i],"\n")
   invisible(
     locfdr(gene_table_list[[i]]$z,plot = 4)
   )
