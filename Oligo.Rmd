@@ -145,14 +145,32 @@ PCA plot of normalized expressions.
 ```{r}
 res_pca = prcomp(t(exprs(eset)),scale. = FALSE)
 screeplot(res_pca)
-autoplot(res_pca, data = sample_table, colour = 'Infection', shape = 'Case.Control', size = 3)
+sample_table_annotated = eset@phenoData@data
+autoplot(res_pca, data = sample_table_annotated, colour = 'Infection', shape = 'Case.Control', size = 3)
 # make array names shorter for plotting
-short_name = as.character(sample_table$array_name)
+short_name = as.character(sample_table_annotated$array_name)
 short_name = gsub(x = short_name,pattern = "Nicholas Bayless_",replacement = "")
 short_name = gsub(x = short_name,pattern = "_\\(HTA-2_0\\)",replacement = "")
-rownames(sample_table) = short_name
-autoplot(res_pca, data = data.frame(sample_table,short_name), 
+sample_table_annotated = cbind(sample_table_annotated,short_name)
+# annote sample table with experimental information
+sample_table_annotated$array_name = as.character(sample_table_annotated$array_name)
+sample_table_more = read.csv("sample_table_more.csv")
+sample_table_more$array_name = as.character(sample_table_more$array_name)
+sample_table_annotated = merge(sample_table_annotated,sample_table_more,by = "array_name",all.x = TRUE)
+rownames(sample_table_annotated) = short_name
+autoplot(res_pca, data = sample_table_annotated, 
          shape = FALSE, label = TRUE, label.size = 3)
+```
+
+Annotate PCA with experimental information.
+
+```{r}
+sample_table_annotated$run_batch = as.factor(sample_table_annotated$run_batch)
+autoplot(res_pca, data = sample_table_annotated, colour = 'rin', size = 3)
+autoplot(res_pca, data = sample_table_annotated, colour = 'viability', size = 3)
+autoplot(res_pca, data = sample_table_annotated, colour = 'viable_cell_count', size = 3)
+autoplot(res_pca, data = sample_table_annotated, colour = 'run_day', size = 3)
+autoplot(res_pca, data = sample_table_annotated, colour = 'run_batch', size = 3)
 ```
 
 ## Differential Expression Analyses
