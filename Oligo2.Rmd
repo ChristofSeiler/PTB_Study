@@ -1,0 +1,113 @@
+---
+title: "Oligo with Continous Response"
+author: Christof Seiler
+date: November, 2016
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Goal
+
+1. Load and normalize data using ``oligo``
+2. Differential analysis using ``limma``
+
+## Load Packages
+
+```{r}
+library(oligo)
+library(limma)
+library(ggfortify)
+library(magrittr)
+library(hta20sttranscriptcluster.db)
+library(statmod)
+```
+
+## Import Data
+
+Then load Affymetrix CEL files. At this stage, Bioconductor will automatically download the necessary annotation packages and install them for us. 
+
+```{r}
+sample_table = read.csv("~/ImmunologyNick/sample_table.csv")
+cel_filenames = paste0(as.character(sample_table$array_name),".CEL")
+pd = as(sample_table, "AnnotatedDataFrame")
+sample_names = paste(sample_table$sample_id,
+                     sample_table$condition,
+                     sample_table$treatment,sep = "_")
+rawData = read.celfiles(cel_filenames,phenoData = pd,sampleNames = sample_names)
+rawData
+```
+
+This is the downloaded annotation package:
+
+```{r}
+pd.hta.2.0
+```
+
+Let's have a first look at the data. These are the samples:
+
+```{r}
+slotNames(rawData)
+sampleNames(rawData)
+```
+
+## Preprocessing
+
+Background subtraction, normalization and summarization using median-polish.
+
+```{r}
+eset = rma(rawData)
+class(eset)
+show(eset)
+exprs(eset)[1:10, 1:2]
+save(eset,file = "eset.Rdata")
+```
+
+PCA plot of normalized expressions.
+
+```{r}
+res_pca = prcomp(t(exprs(eset)),scale. = FALSE)
+screeplot(res_pca)
+sample_table_annotated = eset@phenoData@data
+autoplot(res_pca, data = sample_table_annotated, colour = 'Infection', shape = 'Case.Control', size = 3)
+# make array names shorter for plotting
+short_name = as.character(sample_table_annotated$array_name)
+short_name = gsub(x = short_name,pattern = "Nicholas Bayless_",replacement = "")
+short_name = gsub(x = short_name,pattern = "_\\(HTA-2_0\\)",replacement = "")
+sample_table_annotated = cbind(sample_table_annotated,short_name)
+# annote sample table with experimental information
+sample_table_annotated$array_name = as.character(sample_table_annotated$array_name)
+sample_table_more = read.csv("sample_table_more.csv")
+sample_table_more$array_name = as.character(sample_table_more$array_name)
+sample_table_annotated = merge(sample_table_annotated,sample_table_more,by = "array_name",all.x = TRUE)
+rownames(sample_table_annotated) = short_name
+autoplot(res_pca, data = sample_table_annotated, 
+         shape = FALSE, label = TRUE, label.size = 3)
+```
+
+Annotate PCA with experimental information.
+
+```{r}
+sample_table_annotated$run_batch = as.factor(sample_table_annotated$run_batch)
+autoplot(res_pca, data = sample_table_annotated, colour = 'rin', size = 3)
+autoplot(res_pca, data = sample_table_annotated, colour = 'viability', size = 3)
+autoplot(res_pca, data = sample_table_annotated, colour = 'viable_cell_count', size = 3)
+autoplot(res_pca, data = sample_table_annotated, colour = 'run_day', size = 3)
+autoplot(res_pca, data = sample_table_annotated, colour = 'run_batch', size = 3)
+```
+
+## Differential Expression Analyses
+
+Use ``limma`` for linear models to assess difference in expression.
+
+```{r}
+#TODO
+```
+
+## Session Info
+
+```{r session_info}
+sessionInfo()
+```
