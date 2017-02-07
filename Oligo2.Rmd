@@ -30,7 +30,7 @@ library(statmod)
 Then load Affymetrix CEL files. At this stage, Bioconductor will automatically download the necessary annotation packages and install them for us. 
 
 ```{r}
-sample_table = read.csv("~/ImmunologyNick/sample_table.csv")
+sample_table = read.csv("sample_table.csv")
 cel_filenames = paste0(as.character(sample_table$array_name),".CEL")
 pd = as(sample_table, "AnnotatedDataFrame")
 sample_names = paste(sample_table$sample_id,
