@@ -13,7 +13,7 @@ module load R/3.3.0
 start=`date +%s`
 
 # preprocessing and differential analysis
-R -e "rmarkdown::render('Oligo.Rmd')"
+R -e "rmarkdown::render('Oligo2.Rmd')"
 
 end=`date +%s`
 runtime=$((end-start))
