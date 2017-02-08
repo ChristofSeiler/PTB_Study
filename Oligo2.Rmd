@@ -161,10 +161,21 @@ map_gene_symbol = function(gene_table) {
     matching_symbol
   }) %>% unlist
   gene_table = cbind(gene_table,symbol=symbol,stringsAsFactors=FALSE)
-  print(head(gene_table))
-  gene_table  
+  gene_table
 }
 gene_table_list = lapply(gene_table_list,map_gene_symbol)
+```
+
+Print genes that are below an FDR of 0.05.
+
+```{r}
+for(i in 1:length(gene_table_list)) {
+  separator = "-----------"
+  cat(separator,names(gene_table_list)[i],separator,"\n")
+  gene_table_subset = subset(gene_table_list[[i]],adj.P.Val < 0.05)
+  print(gene_table_subset[,c("logFC","adj.P.Val","symbol")])
+  cat(separator,names(gene_table_list)[i],separator,"\n")
+}
 ```
 
 ## Export Results
