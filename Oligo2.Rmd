@@ -23,6 +23,7 @@ library(ggfortify)
 library(magrittr)
 library(hta20sttranscriptcluster.db)
 library(statmod)
+library(stringr)
 ```
 
 ## Import Data
@@ -70,40 +71,112 @@ PCA plot of normalized expressions.
 ```{r}
 res_pca = prcomp(t(exprs(eset)),scale. = FALSE)
 screeplot(res_pca)
-sample_table_annotated = eset@phenoData@data
-autoplot(res_pca, data = sample_table_annotated, colour = 'Infection', shape = 'Case.Control', size = 3)
-# make array names shorter for plotting
-short_name = as.character(sample_table_annotated$array_name)
-short_name = gsub(x = short_name,pattern = "Nicholas Bayless_",replacement = "")
-short_name = gsub(x = short_name,pattern = "_\\(HTA-2_0\\)",replacement = "")
-sample_table_annotated = cbind(sample_table_annotated,short_name)
-# annote sample table with experimental information
-sample_table_annotated$array_name = as.character(sample_table_annotated$array_name)
-sample_table_more = read.csv("sample_table_more.csv")
-sample_table_more$array_name = as.character(sample_table_more$array_name)
-sample_table_annotated = merge(sample_table_annotated,sample_table_more,by = "array_name",all.x = TRUE)
-rownames(sample_table_annotated) = short_name
-autoplot(res_pca, data = sample_table_annotated, 
+sample_table = eset@phenoData@data
+autoplot(res_pca, data = sample_table, colour = 'treatment', shape = 'condition', size = 3)
+sample_names = paste(sample_table$sample_id,
+                     sample_table$treatment,sep = "_")
+rownames(sample_table) = sample_names
+autoplot(res_pca, data = sample_table, 
          shape = FALSE, label = TRUE, label.size = 3)
 ```
 
 Annotate PCA with experimental information.
 
 ```{r}
-sample_table_annotated$run_batch = as.factor(sample_table_annotated$run_batch)
-autoplot(res_pca, data = sample_table_annotated, colour = 'rin', size = 3)
-autoplot(res_pca, data = sample_table_annotated, colour = 'viability', size = 3)
-autoplot(res_pca, data = sample_table_annotated, colour = 'viable_cell_count', size = 3)
-autoplot(res_pca, data = sample_table_annotated, colour = 'run_day', size = 3)
-autoplot(res_pca, data = sample_table_annotated, colour = 'run_batch', size = 3)
+sample_table$run_batch = as.factor(sample_table$run_batch)
+autoplot(res_pca, data = sample_table, colour = 'rin', size = 3)
+autoplot(res_pca, data = sample_table, colour = 'run_day', size = 3)
+autoplot(res_pca, data = sample_table, colour = 'run_batch', size = 3)
+autoplot(res_pca, data = sample_table, colour = 'viable_cell_count', size = 3)
+autoplot(res_pca, data = sample_table, colour = 'viability', size = 3)
+autoplot(res_pca, data = sample_table, colour = 'gestage_delivery', size = 3)
+autoplot(res_pca, data = sample_table, colour = 'gestage_enroll', size = 3)
 ```
 
 ## Differential Expression Analyses
 
-Use ``limma`` for linear models to assess difference in expression.
+Use ``limma`` for linear models to assess difference in expression. Define design matrix.
 
 ```{r}
-#TODO
+sample_table$sample_id = factor(sample_table$sample_id)
+sample_table$treatment = factor(sample_table$treatment,levels = c("Mock","H1N1"))
+design = model.matrix(~ gestage_enroll * treatment,
+                      sample_table)
+colnames(design) = str_replace(string = colnames(design),pattern = ":",replacement = "_") %>%
+  str_replace(string = .,pattern = "treatment",replacement = "")
+colnames(design)
+```
+
+Estimate the correlation between measurements made on the same subject.
+
+```{r}
+corfit = duplicateCorrelation(eset, design,block = sample_table$sample_id)
+```
+
+Then this inter-subject correlation is input into the linear model fit.
+
+```{r}
+fit = lmFit(eset,design,block = sample_table$sample_id,correlation = corfit$consensus)
+```
+
+Then compute moderated t-tests.
+
+```{r}
+fit = eBayes(fit)
+```
+
+The topTable command provides us a way of ranking genes for further evaluation. In the case below, we adjust for multiple testing by FDR. Save results in a list of tables.
+
+```{r}
+coeffs = colnames(design)[-1]
+gene_table_list = lapply(coeffs,function(coeff_name) {
+  gene_table = topTable(fit, 
+                        coef = coeff_name, 
+                        adjust="BH", 
+                        number = nrow(fit))
+  print(head(gene_table))
+  gene_table
+})
+names(gene_table_list) = coeffs
+```
+
+Volcano plots for quality control.
+
+```{r}
+for(coeff_name in coeffs) {
+  cat(coeff_name,"\n")
+  volcanoplot(fit,coef = coeff_name,highlight = 10)
+}
+```
+
+Map between manufacturer identifiers and gene symbols.
+
+```{r}
+e2s = toTable(hta20sttranscriptclusterSYMBOL)
+map_gene_symbol = function(gene_table) {
+  prob_ids = rownames(gene_table)
+  symbol = sapply(prob_ids,function(prob_id) {
+    matching_symbol = e2s$symbol[prob_id==e2s$probe_id]
+    if(length(matching_symbol)==0) matching_symbol = "No_Symbol_Found"
+    matching_symbol
+  }) %>% unlist
+  gene_table = cbind(gene_table,symbol=symbol,stringsAsFactors=FALSE)
+  print(head(gene_table))
+  gene_table  
+}
+gene_table_list = lapply(gene_table_list,map_gene_symbol)
+```
+
+## Export Results
+
+Write to text file.
+
+```{r}
+for(i in 1:length(gene_table_list)) {
+  file_name_results = paste0(names(gene_table_list)[i],"_results.csv")
+  cat("writting:",file_name_results,"\n")
+  write.csv(gene_table_list[[i]],file = file_name_results)
+}
 ```
 
 ## Session Info
