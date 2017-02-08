@@ -1,7 +1,7 @@
 ---
 title: "Gene Expression Network Analysis"
 author: Christof Seiler
-date: November, 2016
+date: February, 2017
 output: html_document
 params:
   fdr: 0.05
@@ -131,6 +131,7 @@ Then we search for the optimal subgraph.
 ```{r}
 fdr_largest = as.numeric(params$fdr)
 fdr_vec = fdr_largest/(10^(0:(2*n_cores-1)))
+fdr_vec
 module_list = mclapply(fdr_vec,function(fdr) {
   scores = scoreNodes(network, fb, fdr=fdr)
   module = runFastHeinz(network, scores)
@@ -142,6 +143,7 @@ num_nodes = as.numeric(params$num_nodes)
 module_select = module_lengths <= num_nodes
 module_select[length(module_select)] = TRUE
 module_id = which(module_select)[1]
+fdr_vec[module_id]
 module = module_list[[module_id]]
 module
 ```
