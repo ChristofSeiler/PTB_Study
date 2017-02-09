@@ -185,8 +185,6 @@ for(i in 1:length(gene_table_list)) {
 }
 ```
 
-## Export Results
-
 Write to text file.
 
 ```{r}
@@ -195,6 +193,53 @@ for(i in 1:length(gene_table_list)) {
   cat("writting:",file_name_results,"\n")
   write.csv(gene_table_list[[i]],file = file_name_results)
 }
+```
+
+## Plot Individual Probes
+
+Plot the raw abundances for individual probes against explanatory variables. Run day effects?
+
+```{r}
+plot_probe = function(probe_name) {
+  probe_id = which(rownames(exprs(eset)) == probe_name)
+  df_probe = data.frame(probe = exprs(eset)[probe_id,],
+                        sample_table)
+  ggplot(df_probe, aes(x = time_to_delivery,y = probe,color = run_day)) + 
+    geom_point() + 
+    facet_wrap(~ treatment) +
+    ggtitle(probe_name)
+}
+plot_probe("TC14000062.hg.1")
+plot_probe("ERCCmix2step23")
+plot_probe("TC11002981.hg.1")
+```
+
+Difference in slope.
+
+```{r}
+plot_probe = function(probe_name) {
+  probe_id = which(rownames(exprs(eset)) == probe_name)
+  df_probe = data.frame(probe = exprs(eset)[probe_id,],
+                        sample_table)
+  ggplot(df_probe, aes(x = time_to_delivery,y = probe)) + 
+    geom_point() + 
+    geom_smooth(method = "lm", se = FALSE) +
+    facet_wrap(~ treatment) +
+    ggtitle(probe_name)
+}
+plot_probe("TC01001623.hg.1")
+```
+
+Difference in mean between H1N1 and Mock.
+
+```{r}
+plot_probe("TC11001706.hg.1")
+```
+
+Difference in slope between H1N1 and Mock.
+
+```{r}
+plot_probe("TC19000540.hg.1")
 ```
 
 ## Session Info
