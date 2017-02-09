@@ -80,6 +80,12 @@ autoplot(res_pca, data = sample_table,
          shape = FALSE, label = TRUE, label.size = 3)
 ```
 
+Add time to delivery variable.
+
+```{r}
+sample_table$time_to_delivery = sample_table$gestage_delivery - sample_table$gestage_enroll
+```
+
 Annotate PCA with experimental information.
 
 ```{r}
@@ -91,6 +97,7 @@ autoplot(res_pca, data = sample_table, colour = 'viable_cell_count', size = 3)
 autoplot(res_pca, data = sample_table, colour = 'viability', size = 3)
 autoplot(res_pca, data = sample_table, colour = 'gestage_delivery', size = 3)
 autoplot(res_pca, data = sample_table, colour = 'gestage_enroll', size = 3)
+autoplot(res_pca, data = sample_table, colour = 'time_to_delivery', size = 3)
 ```
 
 ## Differential Expression Analyses
@@ -100,7 +107,7 @@ Use ``limma`` for linear models to assess difference in expression. Define desig
 ```{r}
 sample_table$sample_id = factor(sample_table$sample_id)
 sample_table$treatment = factor(sample_table$treatment,levels = c("Mock","H1N1"))
-design = model.matrix(~ gestage_enroll * treatment,
+design = model.matrix(~ time_to_delivery * treatment + gestage_delivery * treatment,
                       sample_table)
 colnames(design) = str_replace(string = colnames(design),pattern = ":",replacement = "_") %>%
   str_replace(string = .,pattern = "treatment",replacement = "")

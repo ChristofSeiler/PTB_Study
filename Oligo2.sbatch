@@ -16,7 +16,7 @@ start=`date +%s`
 R -e "rmarkdown::render('Oligo2.Rmd')"
 
 # network analysis for interaction term
-prefix=gestage_enroll
+prefix=time_to_delivery
 fdr=0.05
 R -e "rmarkdown::render('NetworkAnalysis.Rmd',output_file = '${prefix}_NetworkAnalysis.html',params = list(csv_file_name = '${prefix}_results.csv',fdr = '${fdr}'))"
 
@@ -24,7 +24,15 @@ prefix=H1N1
 fdr=0.05
 R -e "rmarkdown::render('NetworkAnalysis.Rmd',output_file = '${prefix}_NetworkAnalysis.html',params = list(csv_file_name = '${prefix}_results.csv',fdr = '${fdr}'))"
 
-prefix=gestage_enroll_H1N1
+prefix=gestage_delivery
+fdr=0.05
+R -e "rmarkdown::render('NetworkAnalysis.Rmd',output_file = '${prefix}_NetworkAnalysis.html',params = list(csv_file_name = '${prefix}_results.csv',fdr = '${fdr}'))"
+
+prefix=time_to_delivery_H1N1
+fdr=0.05
+R -e "rmarkdown::render('NetworkAnalysis.Rmd',output_file = '${prefix}_NetworkAnalysis.html',params = list(csv_file_name = '${prefix}_results.csv',fdr = '${fdr}'))"
+
+prefix=H1N1_gestage_delivery
 fdr=0.05
 R -e "rmarkdown::render('NetworkAnalysis.Rmd',output_file = '${prefix}_NetworkAnalysis.html',params = list(csv_file_name = '${prefix}_results.csv',fdr = '${fdr}'))"
 

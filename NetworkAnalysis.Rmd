@@ -6,7 +6,7 @@ output: html_document
 params:
   fdr: 0.05
   num_nodes: 50
-  csv_file_name: "gestage_enroll_H1N1_results.csv"
+  csv_file_name: "time_to_delivery_results.csv"
 ---
 
 ```{r setup, include=FALSE}
@@ -130,7 +130,7 @@ Then we search for the optimal subgraph.
 
 ```{r}
 fdr_largest = as.numeric(params$fdr)
-fdr_vec = fdr_largest/(10^(0:(2*n_cores-1)))
+fdr_vec = fdr_largest/10^(0:(n_cores-1))
 fdr_vec
 module_list = mclapply(fdr_vec,function(fdr) {
   scores = scoreNodes(network, fb, fdr=fdr)
