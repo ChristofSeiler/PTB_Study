@@ -94,7 +94,7 @@ tb_file_name = lapply(sample_table$sample_id,function(id) {
   tibble(sample_id = id,file_name = name)
 }) %>% bind_rows()
 sample_table %<>% dplyr::left_join(tb_file_name,by = "sample_id")
-write_csv(sample_table,path = "sample_table_matched.csv")
+#write_csv(sample_table,path = "sample_table_matched.csv")
 ```
 
 Read sample phenotype data from ARR files (which are xml files) and extract information about experimental design. 
