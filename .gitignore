@@ -9,3 +9,5 @@
 
 targets.csv
 .Rproj.user
+*.ARR
+*.CEL
