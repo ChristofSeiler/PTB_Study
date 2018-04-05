@@ -1,5 +1,5 @@
 ---
-title: "Oligo with Matched Samples"
+title: "Oligo with Matching"
 author: Christof Seiler
 date: November, 2016
 output: html_document
@@ -20,9 +20,9 @@ Install necessary packages from bioconductor repository. Run this code only once
 
 ```{r install_packages, warning=FALSE, message=FALSE, eval=FALSE}
 pkgs_needed = c("oligo","limma",
-                "hta20sttranscriptcluster.db",
+                "hta20transcriptcluster.db","pd.hta.2.0",
                 "MatchIt",
-                "ggfortify","magrittr","statmod","readr","dplyr")
+                "ggfortify","magrittr","statmod","readr","dplyr","readxl","stringr")
 letsinstall = setdiff(pkgs_needed, installed.packages()) 
 if (length(letsinstall) > 0) {
   source("http://bioconductor.org/biocLite.R")
@@ -32,24 +32,47 @@ if (length(letsinstall) > 0) {
 
 Load packages.
 
-```{r}
+```{r load_packages}
 library("oligo")
 library("limma")
-library("hta20sttranscriptcluster.db")
+library("hta20transcriptcluster.db")
 library("MatchIt")
 library("ggfortify")
 library("magrittr")
 library("statmod")
 library("readr")
 library("dplyr")
+library("readxl")
+library("stringr")
 ```
 
 ## Import Data
 
-Read sample table.
+Read sample tables. Merge with sample information table.
 
 ```{r read_sample_table}
 sample_table = read_csv("sample_table_from_word.csv")
+new_matched = read_excel("MSS Case_Control Matches (Masked)_new_matched.xlsx")
+sample_table %<>% dplyr::left_join(new_matched,by = "ptidno", suffix = c("", "2"))
+sample_table %<>% dplyr::select(ptidno,
+                                ptb_case,
+                                gestage_pbmc_collected,
+                                gestage_delivery,
+                                sample_id = SampleID)
+```
+
+Find CEL files in current folder.
+
+```{r find_cel}
+file_names_cel = list.files("./",pattern = "CEL")
+tb_file_name = lapply(sample_table$sample_id,function(id) {
+  pattern = paste0("[ _]",id)
+  name = file_names_cel[which(str_detect(file_names_cel,pattern))]
+  if(length(name)==0) name = NA
+  tibble(sample_id = id,file_name = name)
+}) %>% bind_rows()
+sample_table %<>% dplyr::left_join(tb_file_name,by = "sample_id")
+sample_table %<>% na.omit
 ```
 
 Match samples.
@@ -68,118 +91,34 @@ for(i in 1:nrow(mout$match.matrix)) {
   sample_table$pair[A[i]] = i
   sample_table$pair[B[i]] = i
 }
-```
-
-Merge with sample information table.
-
-```{r merge_tables}
-new_matched = read_excel("MSS Case_Control Matches (Masked)_new_matched.xlsx")
-sample_table %<>% dplyr::left_join(new_matched,by = "ptidno")
-sample_table %<>% dplyr::select(ptidno,
-                                ptb_case = ptb_case.x,
-                                gestage_pbmc_collected,
-                                gestage_delivery = gestage_delivery.x,
-                                pair,
-                                sample_id = SampleID)
-```
-
-Find CEL files in current folder.
-
-```{r find_cel}
-file_names_cel = list.files("./",pattern = "CEL")
-tb_file_name = lapply(sample_table$sample_id,function(id) {
-  pattern = paste0("[ _]",id)
-  name = file_names_cel[which(str_detect(file_names_cel,pattern))]
-  if(length(name)==0) name = NA
-  tibble(sample_id = id,file_name = name)
-}) %>% bind_rows()
-sample_table %<>% dplyr::left_join(tb_file_name,by = "sample_id")
+sample_table %<>% dplyr::select(-group)
+#sample_table %<>% na.omit
 #write_csv(sample_table,path = "sample_table_matched.csv")
-```
-
-Read sample phenotype data from ARR files (which are xml files) and extract information about experimental design. 
-
-```{r}
-file_names_arr = list.files("./",pattern = "ARR")
-sample_table2 = sapply(file_names_arr,function(file_name) {
-  xml_file = read_xml(file_name)
-  # extract array name
-  items = xml_find_all(xml_file, ".//PhysicalArray")
-  array_name = xml_attrs(items[[1]])["ArrayName"]
-  # extract conditions
-  items = xml_find_all(xml_file, ".//UserAttribute")
-  cond = c(xml_text(items),array_name)
-  names(cond) = c(xml_attrs(items[[1]])["Name"],
-                  xml_attrs(items[[2]])["Name"],
-                  "array_name")
-  cond
-}) %>% t %>% data.frame
-head(sample_table2)
 ```
 
 Then load Affymetrix CEL files. At this stage, Bioconductor will automatically download the necessary annotation packages and install them for us. 
 
-```{r}
-#celFiles = list.celfiles("./", full.names=TRUE)
-pd = as(sample_table, "AnnotatedDataFrame")
-cef_file_names = sapply(rownames(sample_table),function(file_name) {
-  length_without_exp = nchar(file_name)-4
-  paste0(".//",substr(file_name,0,length_without_exp),"_(HTA-2_0).CEL")
-})
-rawData = read.celfiles(cef_file_names,phenoData = pd,sampleNames = rownames(sample_table))
+```{r read_celfiles}
+pd = as(as.data.frame(sample_table), "AnnotatedDataFrame")
+rawData = read.celfiles(sample_table$file_name,
+                        phenoData = pd,
+                        sampleNames = sample_table$sample_id)
 rawData
-```
-
-This is the downloaded annotation package:
-
-```{r}
-pd.hta.2.0
-```
-
-Let's have a first look at the data. These are the samples:
-
-```{r}
-slotNames(rawData)
-sampleNames(rawData)
 ```
 
 ## Quality Control
 
 MA plots on the first three samples.
 
-```{r}
+```{r maplot}
 MAplot(rawData[, 1:3], pairs=TRUE)
-```
-
-Accessing probe sequences.
-
-```{r}
-pmSeq = pmSequence(rawData)
-head(pmSeq)
-```
-
-The dependence of intensity on probe sequence is a well established fact on the microarray literature.
-
-```{r}
-#pmsLog2 = log2(pm(rawData))
-#coefs = getAffinitySplineCoefficients(pmsLog2, pmSeq)
-# TODO: We executing above command, we get the following error:
-# Error in model.frame.default(formula = intensities ~ design, drop.unused.levels = TRUE) : 
-#  variable lengths differ (found for 'design')
-```
-
-Probe level models.
-
-```{r}
-#fit1 = fitProbeLevelModel(rawData)
-# TODO: Some plotting
 ```
 
 ## Preprocessing
 
 Background subtraction, normalization and summarization using median-polish.
 
-```{r}
+```{r normalizing}
 eset = rma(rawData)
 class(eset)
 show(eset)
@@ -189,133 +128,66 @@ save(eset,file = "eset.Rdata")
 
 PCA plot of normalized expressions.
 
-```{r}
-res_pca = prcomp(t(exprs(eset)),scale. = FALSE)
+```{r pca_plots}
+res_pca = prcomp(t(exprs(eset)), scale. = FALSE)
 screeplot(res_pca)
 sample_table_annotated = eset@phenoData@data
-autoplot(res_pca, data = sample_table_annotated, colour = 'Infection', shape = 'Case.Control', size = 3)
-# make array names shorter for plotting
-short_name = as.character(sample_table_annotated$array_name)
-short_name = gsub(x = short_name,pattern = "Nicholas Bayless_",replacement = "")
-short_name = gsub(x = short_name,pattern = "_\\(HTA-2_0\\)",replacement = "")
-sample_table_annotated = cbind(sample_table_annotated,short_name)
-# annote sample table with experimental information
-sample_table_annotated$array_name = as.character(sample_table_annotated$array_name)
-sample_table_more = read.csv("sample_table_more.csv")
-sample_table_more$array_name = as.character(sample_table_more$array_name)
-sample_table_annotated = merge(sample_table_annotated,sample_table_more,by = "array_name",all.x = TRUE)
-rownames(sample_table_annotated) = short_name
-autoplot(res_pca, data = sample_table_annotated, 
-         shape = FALSE, label = TRUE, label.size = 3)
-```
-
-Annotate PCA with experimental information.
-
-```{r}
-sample_table_annotated$run_batch = as.factor(sample_table_annotated$run_batch)
-autoplot(res_pca, data = sample_table_annotated, colour = 'rin', size = 3)
-autoplot(res_pca, data = sample_table_annotated, colour = 'viability', size = 3)
-autoplot(res_pca, data = sample_table_annotated, colour = 'viable_cell_count', size = 3)
-autoplot(res_pca, data = sample_table_annotated, colour = 'run_day', size = 3)
-autoplot(res_pca, data = sample_table_annotated, colour = 'run_batch', size = 3)
+sample_table_annotated$pair %<>% as.factor
+asp_ratio = res_pca$sdev[2]^2/res_pca$sdev[1]^2
+autoplot(res_pca, 
+         data = sample_table_annotated, 
+         shape = "ptb_case", 
+         colour = "gestage_pbmc_collected",
+         size = 3, 
+         asp = asp_ratio)
+autoplot(res_pca, 
+         data = sample_table_annotated, 
+         shape = "ptb_case", 
+         colour = "gestage_delivery",
+         size = 3,
+         asp = asp_ratio)
+rownames(sample_table_annotated) = paste0(sample_table_annotated$pair,
+                                          "_",
+                                          sample_table_annotated$sample_id)
+autoplot(res_pca, 
+         data = sample_table_annotated, 
+         shape = FALSE, 
+         colour = "pair",
+         label = TRUE,
+         asp = asp_ratio)
 ```
 
 ## Differential Expression Analyses
 
-### Mixed Effect Model
+Use ``limma`` for linear models to assess difference in expression. Paired analysis as described in Section 9.4.1 on page 42 in the [limma vignette](https://www.bioconductor.org/packages/devel/bioc/vignettes/limma/inst/doc/usersguide.pdf).
 
-Use ``limma`` for linear models to assess difference in expression.
-
-```{r}
-array_name = eset[["array_name"]]
-# find paired samples
-sample_table_ratio = read.csv("sample_table_ratio.csv")
-sample_table_ratio$Mock = as.character(sample_table_ratio$Mock)
-sample_table_ratio$H1N1 = as.character(sample_table_ratio$H1N1)
-mock_ids = sapply(sample_table_ratio$Mock,function(mock_name) which(mock_name == array_name))
-h1n1_ids = sapply(sample_table_ratio$H1N1,function(h1n1_name) which(h1n1_name == array_name))
-# encode paired samples
-subject = rep(NA,length(array_name))
-for(id in 1:length(mock_ids)) {
-  subject[c(mock_ids[id],h1n1_ids[id])] = id
-}
-# combine
-targets = data.frame(array_name,
-                     subject=as.factor(subject),
-                     condition=eset[["Infection"]],
-                     treatment=eset[["Case.Control"]])
-targets$array_name = as.character(targets$array_name)
-levels(targets$condition)[levels(targets$condition)=="Control"] = "Term"
-levels(targets$condition)[levels(targets$condition)=="Case"] = "Preterm"
-rownames(targets) = 1:nrow(targets)
-# exclude sample that are not paired
-paired_ids = which(!is.na(targets$subject))
-targets = targets[paired_ids,]
-exprs(eset) = exprs(eset)[,paired_ids]
-phenoData(eset) = as(targets, "AnnotatedDataFrame")
-# design
-combo = factor(paste(targets$condition,targets$treatment,sep="_"))
-design = model.matrix(~ 0 + combo)
-colnames(design) = levels(combo)
-```
-
-Estimate the correlation between measurements made on the same subject.
-
-From [limma vignette (page 50)](https://www.bioconductor.org/packages/devel/bioc/vignettes/limma/inst/doc/usersguide.pdf):
-"This experiment has two levels of variability. First, there is the variation from person to person, which we call the between-subject strata. Then there is the variability of repeat measurements made on the same subject, the within-subject strata. The between-subject variation is always expected to be larger than within-subject, because the latter is adjusted for baseline differences between the subjects. Here the comparison between tissues can be made within subjects, and hence should be more precise than the comparison between diseased and normal, which must be made between subjects."
-
-```{r}
-corfit = duplicateCorrelation(eset,design,block=targets$subject)
-```
-
-Then this inter-subject correlation is input into the linear model fit.
-
-```{r}
-fit = lmFit(eset,design,block=targets$subject,correlation=corfit$consensus)
-```
-
-Now we can make any comparisons between the experimental conditions.
-
-```{r}
-cm = makeContrasts(
-  Preterm_vs_Term_for_H1N1 = Preterm_H1N1-Term_H1N1,
-  Preterm_vs_Term_for_Mock = Preterm_Mock-Term_Mock,
-  H1N1_vs_Mock_for_Preterm = Preterm_H1N1-Preterm_Mock,
-  H1N1_vs_Mock_for_Term = Term_H1N1-Term_Mock,
-  H1N1_vs_Mock_for_Preterm_vs_H1N1_vs_Mock_for_Term = (Preterm_H1N1-Preterm_Mock)-(Term_H1N1-Term_Mock),
-  levels=design)
-```
-
-Then compute these contrasts and moderated t-tests.
-
-```{r}
-fit = contrasts.fit(fit, cm)
+```{r paired_samples}
+targets = eset@phenoData@data
+pair = factor(targets$pair)
+treat = factor(targets$ptb_case, levels = c("control","case"))
+design = model.matrix(~ pair + treat)
+fit = lmFit(eset, design)
 fit = eBayes(fit)
 ```
 
-The topTable command provides us a way of ranking genes for further evaluation. In the case below, we adjust for multiple testing by FDR. Save results in a list of tables.
+The topTable command provides us a way of ranking genes for further evaluation. In the case below, we adjust for multiple testing by FDR.
 
 ```{r}
-gene_table_list = lapply(colnames(cm),function(cm_name) {
-  gene_table = topTable(fit, coef=cm_name, adjust="BH", number = nrow(fit))
-  print(head(gene_table))
-  gene_table
-})
+gene_table = topTable(fit, coef = "treatcase", adjust = "BH", number = nrow(fit))
+hist(gene_table$P.Value,breaks = 20)
+sum(gene_table$adj.P.Val < 0.05)
 ```
 
 Volcano plots for quality control.
 
 ```{r}
-for(cm_name in colnames(cm)) {
-  cat(cm_name,"\n")
-  volcanoplot(fit,coef = cm_name,highlight = 10)
-}
+volcanoplot(fit, coef = "treatcase", highlight = 10)
 ```
 
 Map between manufacturer identifiers and gene symbols.
 
 ```{r}
-e2s = toTable(hta20sttranscriptclusterSYMBOL)
+e2s = toTable(hta20transcriptclusterSYMBOL)
 map_gene_symbol = function(gene_table) {
   prob_ids = rownames(gene_table)
   symbol = sapply(prob_ids,function(prob_id) {
@@ -327,154 +199,8 @@ map_gene_symbol = function(gene_table) {
   print(head(gene_table))
   gene_table  
 }
-gene_table_list = lapply(gene_table_list,map_gene_symbol)
-```
-
-### Fixed Effect Model
-
-The last contrast could also be modeled with a fixed effect model.
-
-```{r}
-# create design matrix
-H1N1_vs_Mock_for_Preterm = as.numeric(targets$condition=="Preterm" & targets$treatment=="H1N1")
-H1N1_vs_Mock_for_Term = as.numeric(targets$condition=="Term" & targets$treatment=="H1N1")
-Subject = targets$subject
-design = model.matrix(~ Subject + H1N1_vs_Mock_for_Preterm + H1N1_vs_Mock_for_Term)
-colnames(design)[1] = "Intercept"
-# # correct using negative control probes (not working: not enough conrol genes)
-# negative_control_genes = c("GAPDH","ACTB","UBB")
-# ids = sapply(negative_control_genes,function(gene) which(gene == e2s$symbol))
-# negative_control_probes = lapply(ids,function(id) e2s[id,]) %>% do.call(rbind,.)
-# ctl = rownames(exprs(eset)) %in% negative_control_probes$probe_id
-# exprs(eset) = RUV1(t(exprs(eset)),eta = 1,ctl = ctl) %>% t
-# estimate
-fit2 = lmFit(eset,design)
-cm2 = makeContrasts(H1N1_vs_Mock_for_Preterm-H1N1_vs_Mock_for_Term,levels = design)
-fit2 = contrasts.fit(fit2, cm2)
-fit2 = eBayes(fit2)
-cm2_name = "H1N1_vs_Mock_for_Preterm - H1N1_vs_Mock_for_Term"
-gene_table2 = topTable(fit2,
-                      coef=cm2_name,
-                      adjust="BH",
-                      number = nrow(fit2))
-volcanoplot(fit2,coef = cm2_name,highlight = 10)
-gene_table2 = map_gene_symbol(gene_table2)
-```
-
-Visualize the differences. The p-value distribution indicates that there might be a unexplained covariate.
-
-```{r}
-# prepare sample table
-sample_pairs = sapply(unique(targets$subject),function(subject_id) {
-  subject_pair_ids = which(targets$subject==subject_id)
-  mock_id = subject_pair_ids[targets$treatment[subject_pair_ids]=="Mock"]
-  h1n1_id = subject_pair_ids[targets$treatment[subject_pair_ids]=="H1N1"]
-  c(h1n1_id=h1n1_id,mock_id=mock_id)
-}) %>% t %>% data.frame
-sample_pairs = data.frame(h1n1_id=sample_pairs$h1n1_id,
-           mock_id=sample_pairs$mock_id,
-           h1n1=targets[sample_pairs$h1n1_id,],
-           mock=targets[sample_pairs$mock_id,])
-sample_pairs = sample_pairs[,-c(4,8)]
-rownames(sample_pairs) = NULL
-# prepare expression matrix
-exprs_eset = exprs(eset)
-exprs_eset_diff = matrix(nrow = nrow(exprs_eset),ncol = nrow(sample_pairs))
-for(i in 1:ncol(exprs_eset_diff)) {
-  exprs_eset_diff[,i] = 
-    exprs_eset[,sample_pairs$h1n1_id[i]]-
-    exprs_eset[,sample_pairs$mock_id[i]]
-}
-# make array names shorter for plotting
-make_pretty = function(array_name) {
-  short_name = as.character(array_name)
-  short_name = gsub(x = short_name,pattern = "Nicholas Bayless_",replacement = "")
-  short_name = gsub(x = short_name,pattern = "_\\(HTA-2_0\\)",replacement = "")
-  #short_name = gsub(x = short_name,pattern = "H1N1 ",replacement = "+")
-  #short_name = gsub(x = short_name,pattern = "US ",replacement = "-")
-  short_name = gsub(x = short_name,pattern = "_",replacement = "")
-  #short_name = gsub(x = short_name,pattern = " ",replacement = "")
-  short_name
-}
-short_name = paste(make_pretty(sample_pairs$h1n1.array_name),
-      "-",
-      make_pretty(sample_pairs$mock.array_name))
-# PCA plot of difference expression
-colnames(exprs_eset_diff) = short_name
-res_pca = prcomp(t(exprs_eset_diff),scale. = FALSE)
-screeplot(res_pca)
-autoplot(res_pca, data = sample_pairs, colour = 'mock.condition', size = 3)
-autoplot(res_pca, shape = FALSE, label = TRUE, label.size = 3)
-```
-
-### Collect Results
-
-For convinience collect both mixed and fixed effects result into one list.
-
-```{r}
-gene_table_list = append(gene_table_list,list(gene_table2))
-names(gene_table_list) = c(colnames(cm),
-                           "H1N1_vs_Mock_for_Preterm_vs_H1N1_vs_Mock_for_Term_fixed")
-```
-
-This is the fraction of gene transcripts that didn't map to any gene symbols.
-
-```{r}
-for(i in 1:length(gene_table_list)) {
-  cat(names(gene_table_list)[i],"\n",
-    "fraction of symbols not found:",
-    mean(gene_table_list[[i]]$symbol=="No_Symbol_Found"),"\n",
-    "number of significant genes below FDR of 0.05:",
-    sum(gene_table_list[[i]]$adj.P.Val < 0.05),
-    "\n")
-}
-```
-
-## Power Analysis
-
-Add z-score column to gene tables.
-
-```{r}
-# create inf entries
-add_z_score = function(gene_table) {
-  z = qnorm(pt(gene_table$t,df = ncol(exprs(eset))-2))
-  z[is.infinite(z)] = NA
-  z[is.na(z)] = max(z,na.rm = TRUE) 
-  gene_table$z = z
-  gene_table
-}
-gene_table_list = lapply(gene_table_list,add_z_score)
-```
-
-Power analysis using false discovery rate.
-
-```{r fig.width=9}
-names(gene_table_list)
-for(i in 1:length(gene_table_list)) {
-  invisible(
-    locfdr(gene_table_list[[i]]$z,plot = 4)
-  )
-}
-```
-
-Expected false discovery when increasing the sample size by factor of 2.
-
-```{r}
-# TODO
-```
-
-## Re-Estimate P-Values
-
-Use ``fdrtool`` to re-estimate p-value distribution.
-
-```{r fig.height=9}
-# Not improving the results
-# re_estimate_pvalues = function(gene_table) {
-#   gene_table$P.Value = fdrtool(gene_table$z, statistic= "normal", plot = T)$pval
-#   gene_table$adj.P.Val = p.adjust(gene_table$P.Value, method = "BH")
-#   gene_table
-# }
-# gene_table_list = lapply(gene_table_list,re_estimate_pvalues)
+gene_table = map_gene_symbol(gene_table)
+print(head(gene_table, n = 10))
 ```
 
 ## Export Results
@@ -482,12 +208,7 @@ Use ``fdrtool`` to re-estimate p-value distribution.
 Write to text file.
 
 ```{r}
-write.csv(targets,file = "targets.csv")
-for(i in 1:length(gene_table_list)) {
-  file_name_results = paste0(names(gene_table_list)[i],"_results.csv")
-  cat("writting:",file_name_results,"\n")
-  write.csv(gene_table_list[[i]],file = file_name_results)
-}
+write_csv(gene_table,path = "gene_table_results.csv")
 ```
 
 ## Session Info
