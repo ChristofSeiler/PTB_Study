@@ -92,7 +92,7 @@ for(i in 1:nrow(mout$match.matrix)) {
   sample_table$pair[B[i]] = i
 }
 sample_table %<>% dplyr::select(-group)
-#sample_table %<>% na.omit
+sample_table %<>% na.omit
 #write_csv(sample_table,path = "sample_table_matched.csv")
 ```
 
