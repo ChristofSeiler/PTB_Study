@@ -18,7 +18,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 Install necessary packages from bioconductor repository. Run this code only once to install packages.
 
-```{r install_packages, warning=FALSE, message=FALSE, eval=FALSE}
+```{r install_packages, warning=FALSE, message=FALSE}
 pkgs_needed = c("oligo","limma",
                 "hta20transcriptcluster.db","pd.hta.2.0",
                 "MatchIt",
@@ -32,7 +32,7 @@ if (length(letsinstall) > 0) {
 
 Load packages.
 
-```{r load_packages}
+```{r load_packages, warning=FALSE, message=FALSE}
 library("oligo")
 library("limma")
 library("hta20transcriptcluster.db")
@@ -78,10 +78,11 @@ sample_table %<>% na.omit
 Match samples.
 
 ```{r match_samples}
+set.seed(0xdada2)
 sample_table$group = sample_table$ptb_case == "case"
 mout = matchit(group ~ gestage_pbmc_collected, 
                data = sample_table, 
-               method = "nearest", 
+               method = "optimal", 
                ratio = 1)
 summary(mout)
 sample_table$pair = NA
@@ -93,7 +94,11 @@ for(i in 1:nrow(mout$match.matrix)) {
 }
 sample_table %<>% dplyr::select(-group)
 sample_table %<>% na.omit
-#write_csv(sample_table,path = "sample_table_matched.csv")
+sample_table %>% 
+  select(sample_id,pair,ptb_case,gestage_pbmc_collected,gestage_delivery) %>% 
+  arrange(pair,ptb_case) %>% 
+  print(n = Inf)
+write_csv(sample_table,path = "sample_table_matched.csv")
 ```
 
 Then load Affymetrix CEL files. At this stage, Bioconductor will automatically download the necessary annotation packages and install them for us. 
