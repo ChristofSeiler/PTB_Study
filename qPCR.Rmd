@@ -20,7 +20,7 @@ Analyze data from qPCR experiments.
 Install necessary packages from bioconductor repository. Run this code only once to install packages.
 
 ```{r install_packages, warning=FALSE, message=FALSE}
-pkgs_needed = c("ggplot2","magrittr","readr","dplyr","readxl","stringr","tidyr")
+pkgs_needed = c("ggplot2","magrittr","readr","dplyr","readxl","stringr","tidyr","Rfit")
 letsinstall = setdiff(pkgs_needed, installed.packages()) 
 if (length(letsinstall) > 0) {
   source("http://bioconductor.org/biocLite.R")
@@ -38,6 +38,7 @@ library("dplyr")
 library("readxl")
 library("stringr")
 library("tidyr")
+library("Rfit")
 ```
 
 ## Import Data
@@ -46,12 +47,13 @@ Read, merge, and tidy sample tables.
 
 ```{r read_sample_table}
 new_matched = read_excel("MSS Case_Control Matches (Masked)_new_matched.xlsx")
+new_matched %<>% mutate(time_to_delivery_calc = gestage_delivery - gestage_enroll)
 qpcr_data = read_excel("PTB Raw qPCR data.xlsx")
 qpcr_data$SampleID %<>% as.character
 qpcr_data %<>% dplyr::left_join(new_matched,by = "SampleID", suffix = c("", "2"))
 qpcr_data %<>% dplyr::select(sample_id = SampleID,
                              ptb_case,
-                             time_to_delivery,
+                             time_to_delivery = time_to_delivery_calc,
                              gestage_delivery,
                              RGS13_baseline,
                              IFNL_baseline,
@@ -72,7 +74,6 @@ qpcr_data
 Subset to RGS13.
 
 ```{r subset_RGS13}
-qpcr_data %<>% dplyr::filter(sample_id != "17.3") # TODO: strange value
 qpcr_data_RGS13 = qpcr_data %>% dplyr::filter(gene_name == "RGS13")
 ```
 
@@ -101,6 +102,13 @@ Fit model for `RGS13`.
 
 ```{r fit_model_RGS13}
 lm_fit = lm(expr ~ time_to_delivery + gestage_delivery, qpcr_data_RGS13)
+summary(lm_fit)
+```
+
+Fit robust model using rank-based estimates of regression coefficients.
+
+```{r fit_model_RGS13_rank}
+lm_fit = rfit(expr ~ time_to_delivery + gestage_delivery, qpcr_data_RGS13)
 summary(lm_fit)
 ```
 
@@ -142,6 +150,31 @@ ggplot(qpcr_data_IFNL,aes(x = gestage_delivery, y = expr, color = treatment)) +
 Fit model for `IFNL`.
 
 ```{r fit_model_IFNL}
+lm_fit = lm(expr ~ gestage_delivery + 
+               treatment + 
+               time_to_delivery + 
+               time_to_delivery:treatment +
+               gestage_delivery:treatment, 
+            data = qpcr_data_IFNL)
+summary(lm_fit)
+```
+
+Fit robust model using rank-based estimates of regression coefficients.
+
+```{r fit_model_rank}
+lm_fit = rfit(expr ~ gestage_delivery + 
+               treatment + 
+               time_to_delivery + 
+               time_to_delivery:treatment +
+               gestage_delivery:treatment, 
+            data = qpcr_data_IFNL)
+summary(lm_fit)
+```
+
+Refit linear model after removing possible outlier.
+
+```{r fit_model_IFNL_outlier}
+qpcr_data_IFNL %<>% dplyr::filter(sample_id != "1.1")
 lm_fit = lm(expr ~ gestage_delivery + 
                treatment + 
                time_to_delivery + 
