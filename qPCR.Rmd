@@ -1,0 +1,158 @@
+---
+title: "Follow-Up qPCR Experiments"
+author: Christof Seiler
+date: April, 2018
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Goal
+
+Analyze data from qPCR experiments.
+
+## Install Packages
+
+Install necessary packages from bioconductor repository. Run this code only once to install packages.
+
+```{r install_packages, warning=FALSE, message=FALSE}
+pkgs_needed = c("ggplot2","magrittr","readr","dplyr","readxl","stringr","tidyr")
+letsinstall = setdiff(pkgs_needed, installed.packages()) 
+if (length(letsinstall) > 0) {
+  source("http://bioconductor.org/biocLite.R")
+  biocLite(letsinstall)
+}
+```
+
+Load packages.
+
+```{r load_packages, warning=FALSE, message=FALSE}
+library("magrittr")
+library("ggplot2")
+library("readr")
+library("dplyr")
+library("readxl")
+library("stringr")
+library("tidyr")
+```
+
+## Import Data
+
+Read, merge, and tidy sample tables.
+
+```{r read_sample_table}
+new_matched = read_excel("MSS Case_Control Matches (Masked)_new_matched.xlsx")
+qpcr_data = read_excel("PTB Raw qPCR data.xlsx")
+qpcr_data$SampleID %<>% as.character
+qpcr_data %<>% dplyr::left_join(new_matched,by = "SampleID", suffix = c("", "2"))
+qpcr_data %<>% dplyr::select(sample_id = SampleID,
+                             ptb_case,
+                             time_to_delivery,
+                             gestage_delivery,
+                             RGS13_baseline,
+                             IFNL_baseline,
+                             IFNL_flu)
+qpcr_data %<>% gather(RGS13_baseline, IFNL_baseline, IFNL_flu, 
+                      key = "key", value = "expr")
+qpcr_data %<>% mutate(treatment = if_else(condition = str_detect(qpcr_data$key,"baseline"),
+                                          true = "mock",
+                                          false = "H1N1"))
+qpcr_data %<>% mutate(gene_name = sapply(strsplit(qpcr_data$key,split = "_"),function(str) str[[1]]))
+qpcr_data %<>% select(-key)
+qpcr_data$treatment = factor(qpcr_data$treatment,levels = c("mock","H1N1"))
+qpcr_data
+```
+
+## Fit Model
+
+Subset to RGS13.
+
+```{r subset_RGS13}
+qpcr_data %<>% dplyr::filter(sample_id != "17.3") # TODO: strange value
+qpcr_data_RGS13 = qpcr_data %>% dplyr::filter(gene_name == "RGS13")
+```
+
+Plotting to see possible outliers.
+
+```{r plotting_RGS13}
+ggplot(qpcr_data_RGS13,aes(expr)) + 
+  geom_histogram(bins = 30) + 
+  facet_wrap(~ptb_case) +
+  ggtitle("RGS13")
+ggplot(qpcr_data_RGS13,aes(x = time_to_delivery, y = expr)) +
+  geom_smooth(method = lm, se = FALSE) +
+  geom_point() +
+  geom_text(aes(label = ifelse(expr > quantile(expr, probs = 0.95), sample_id,"")),
+            hjust = 0, vjust = 0) +
+  ggtitle("RGS13")
+ggplot(qpcr_data_RGS13,aes(x = gestage_delivery, y = expr)) +
+  geom_smooth(method = lm, se = FALSE) +
+  geom_point() +
+    geom_text(aes(label = ifelse(expr > quantile(expr, probs = 0.95), sample_id,"")),
+            hjust = 0, vjust = 0) +
+  ggtitle("RGS13")
+```
+
+Fit model for `RGS13`.
+
+```{r fit_model_RGS13}
+lm_fit = lm(expr ~ time_to_delivery + gestage_delivery, qpcr_data_RGS13)
+summary(lm_fit)
+```
+
+Remove potential outlier and refit model to see if we still obtain a similar result.
+
+```{r fit_model_RGS13_outlier}
+qpcr_data_RGS13 %<>% dplyr::filter(sample_id != "16.2")
+lm_fit = lm(expr ~ time_to_delivery + gestage_delivery, qpcr_data_RGS13)
+summary(lm_fit)
+```
+
+Subset to `IFNL`.
+
+```{r subset_IFNL}
+qpcr_data_IFNL = qpcr_data %>% dplyr::filter(gene_name == "IFNL")
+```
+
+Plotting to see possible outliers.
+
+```{r plotting_IFNL}
+ggplot(qpcr_data_IFNL,aes(expr)) + 
+  geom_histogram(bins = 30) + 
+  facet_wrap(~ptb_case) +
+  ggtitle("IFNL")
+ggplot(qpcr_data_IFNL,aes(x = time_to_delivery, y = expr, color = treatment)) +
+  geom_smooth(method = lm, se = FALSE) +
+  geom_point() +
+  geom_text(aes(label = ifelse(expr > quantile(expr, probs = 0.95), sample_id,"")),
+            hjust = 0, vjust = 0) +
+  ggtitle("IFNL")
+ggplot(qpcr_data_IFNL,aes(x = gestage_delivery, y = expr, color = treatment)) +
+  geom_smooth(method = lm, se = FALSE) +
+  geom_point() +
+    geom_text(aes(label = ifelse(expr > quantile(expr, probs = 0.95), sample_id,"")),
+            hjust = 0, vjust = 0) +
+  ggtitle("IFNL")
+```
+
+Fit model for `IFNL`.
+
+```{r fit_model_IFNL}
+lm_fit = lm(expr ~ gestage_delivery + 
+               treatment + 
+               time_to_delivery + 
+               time_to_delivery:treatment +
+               gestage_delivery:treatment, 
+            data = qpcr_data_IFNL)
+summary(lm_fit)
+```
+
+## Session Info
+
+```{r session_info}
+sessionInfo()
+```
