@@ -1,5 +1,5 @@
 ---
-title: "Time to Delivery Analysis on Microarray Data"
+title: "Time to Delivery on Microarray Data"
 author: Christof Seiler
 date: February, 2017
 output: html_document

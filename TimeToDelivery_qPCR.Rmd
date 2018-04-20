@@ -1,5 +1,5 @@
 ---
-title: "Time to Delivery Analysis on Follow-Up qPCR Data"
+title: "Time to Delivery on Follow-Up qPCR Data"
 author: Christof Seiler
 date: April, 2018
 output: html_document

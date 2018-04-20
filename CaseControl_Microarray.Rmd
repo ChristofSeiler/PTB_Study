@@ -1,8 +1,10 @@
 ---
-title: "Case-Control Comparison With Gestational Age Matching"
+title: "Case-Control with Gestational Age Matching"
 author: Christof Seiler
 date: April, 2018
 output: html_document
+params:
+  treatment: "stim"
 ---
 
 ```{r setup, include=FALSE}
@@ -65,6 +67,16 @@ Find CEL files in current folder.
 
 ```{r find_cel}
 file_names_cel = list.files("./",pattern = "CEL")
+params$treatment
+if(params$treatment == "stim") {
+  file_names_cel = file_names_cel[str_detect(
+    string = file_names_cel,
+    pattern = "Bayless_H1N1|\\+\\_\\(HTA")]
+} else {
+  file_names_cel = file_names_cel[str_detect(
+    string = file_names_cel,
+    pattern = "Bayless_US|\\-\\_\\(HTA|\\_\\_\\(HTA|\\-\\_\\(HTA")]
+}
 tb_file_name = lapply(sample_table$sample_id,function(id) {
   pattern = paste0("[ _]",id)
   name = file_names_cel[which(str_detect(file_names_cel,pattern))]
@@ -95,10 +107,13 @@ for(i in 1:nrow(mout$match.matrix)) {
 sample_table %<>% dplyr::select(-group)
 sample_table %<>% na.omit
 sample_table %>% 
-  select(sample_id,pair,ptb_case,gestage_pbmc_collected,gestage_delivery) %>% 
+  dplyr::select(sample_id,pair,ptb_case,gestage_pbmc_collected,gestage_delivery) %>% 
   arrange(pair,ptb_case) %>% 
   print(n = Inf)
 write_csv(sample_table,path = "sample_table_matched.csv")
+ggplot(sample_table, aes(as.factor(pair), gestage_pbmc_collected, color = ptb_case)) + 
+  geom_jitter(position=position_dodge(width = 0.5),size = 2) +
+  xlab("matched pair id")
 ```
 
 Then load Affymetrix CEL files. At this stage, Bioconductor will automatically download the necessary annotation packages and install them for us. 
