@@ -19,7 +19,7 @@ knitr::opts_chunk$set(echo = TRUE)
 Install necessary packages from bioconductor repository. Run this code only once to install packages.
 
 ```{r install_packages, warning=FALSE, message=FALSE}
-pkgs_needed = c("oligo","limma","ggfortify","magrittr","hta20sttranscriptcluster.db",
+pkgs_needed = c("oligo","limma","ggfortify","magrittr","hta20transcriptcluster.db",
                 "statmod","stringr")
 letsinstall = setdiff(pkgs_needed, installed.packages()) 
 if (length(letsinstall) > 0) {
@@ -35,7 +35,7 @@ library("oligo")
 library("limma")
 library("ggfortify")
 library("magrittr")
-library("hta20sttranscriptcluster.db")
+library("hta20transcriptcluster.db")
 library("statmod")
 library("stringr")
 ```
@@ -173,7 +173,7 @@ for(coeff_name in coeffs) {
 Map between manufacturer identifiers and gene symbols.
 
 ```{r}
-e2s = toTable(hta20sttranscriptclusterSYMBOL)
+e2s = toTable(hta20transcriptclusterSYMBOL)
 map_gene_symbol = function(gene_table) {
   prob_ids = rownames(gene_table)
   symbol = sapply(prob_ids,function(prob_id) {
