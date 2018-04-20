@@ -1,5 +1,5 @@
 ---
-title: "Oligo with Continous Response"
+title: "Time to Delivery Analysis on Microarray Data"
 author: Christof Seiler
 date: February, 2017
 output: html_document
@@ -14,16 +14,30 @@ knitr::opts_chunk$set(echo = TRUE)
 1. Load and normalize data using ``oligo``
 2. Differential analysis using ``limma``
 
-## Load Packages
+## Install Packages
 
-```{r}
-library(oligo)
-library(limma)
-library(ggfortify)
-library(magrittr)
-library(hta20sttranscriptcluster.db)
-library(statmod)
-library(stringr)
+Install necessary packages from bioconductor repository. Run this code only once to install packages.
+
+```{r install_packages, warning=FALSE, message=FALSE}
+pkgs_needed = c("oligo","limma","ggfortify","magrittr","hta20sttranscriptcluster.db",
+                "statmod","stringr")
+letsinstall = setdiff(pkgs_needed, installed.packages()) 
+if (length(letsinstall) > 0) {
+  source("http://bioconductor.org/biocLite.R")
+  biocLite(letsinstall)
+}
+```
+
+Load packages.
+
+```{r load_packages, warning=FALSE, message=FALSE}
+library("oligo")
+library("limma")
+library("ggfortify")
+library("magrittr")
+library("hta20sttranscriptcluster.db")
+library("statmod")
+library("stringr")
 ```
 
 ## Import Data
