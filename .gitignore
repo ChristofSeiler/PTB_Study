@@ -12,3 +12,4 @@ targets.csv
 *.ARR
 *.CEL
 sample_table_matched.csv
+*.png

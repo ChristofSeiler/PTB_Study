@@ -79,18 +79,19 @@ qpcr_data_RGS13 = qpcr_data %>% dplyr::filter(gene_name == "RGS13")
 
 Plotting to see possible outliers.
 
-```{r plotting_RGS13}
+```{r plotting_RGS13,fig.width=4,fig.height=4}
 ggplot(qpcr_data_RGS13,aes(expr)) + 
   geom_histogram(bins = 30) + 
   facet_wrap(~ptb_case) +
   ggtitle("RGS13")
-ggplot(qpcr_data_RGS13,aes(x = time_to_delivery, y = expr)) +
+ggplot(qpcr_data_RGS13,aes(x = time_to_delivery, y = expr, color = treatment)) +
   geom_smooth(method = lm, se = FALSE) +
   geom_point() +
   geom_text(aes(label = ifelse(expr > quantile(expr, probs = 0.95), sample_id,"")),
             hjust = 0, vjust = 0) +
   ggtitle("RGS13")
-ggplot(qpcr_data_RGS13,aes(x = gestage_delivery, y = expr)) +
+ggsave(filename = "RGS13.png",width = 4,height = 4,dpi = 600)
+ggplot(qpcr_data_RGS13,aes(x = gestage_delivery, y = expr, color = treatment)) +
   geom_smooth(method = lm, se = FALSE) +
   geom_point() +
     geom_text(aes(label = ifelse(expr > quantile(expr, probs = 0.95), sample_id,"")),
@@ -128,7 +129,7 @@ qpcr_data_IFNL = qpcr_data %>% dplyr::filter(gene_name == "IFNL")
 
 Plotting to see possible outliers.
 
-```{r plotting_IFNL}
+```{r plotting_IFNL,fig.width=4,fig.height=4}
 ggplot(qpcr_data_IFNL,aes(expr)) + 
   geom_histogram(bins = 30) + 
   facet_wrap(~ptb_case) +
@@ -139,6 +140,7 @@ ggplot(qpcr_data_IFNL,aes(x = time_to_delivery, y = expr, color = treatment)) +
   geom_text(aes(label = ifelse(expr > quantile(expr, probs = 0.95), sample_id,"")),
             hjust = 0, vjust = 0) +
   ggtitle("IFNL")
+ggsave(filename = "IFNL.png",width = 4,height = 4,dpi = 600)
 ggplot(qpcr_data_IFNL,aes(x = gestage_delivery, y = expr, color = treatment)) +
   geom_smooth(method = lm, se = FALSE) +
   geom_point() +
