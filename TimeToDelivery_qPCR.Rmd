@@ -121,6 +121,38 @@ lm_fit = lm(expr ~ time_to_delivery + gestage_delivery, qpcr_data_RGS13)
 summary(lm_fit)
 ```
 
+Interpretation.
+
+```{r change_RGS13,fig.width=4,fig.height=3}
+lm_fit = lm(expr ~ gestage_delivery, qpcr_data_RGS13)
+qpcr_data_RGS13 %<>% mutate(residuals = residuals(lm_fit))
+qpcr_data_RGS13 %<>% mutate(time_to_delivery_fac = if_else(time_to_delivery < 10,
+                                                           true = "< 10",
+                                                           false = "10 to 20"))
+qpcr_data_RGS13 %<>% mutate(time_to_delivery_fac = if_else(time_to_delivery > 20,
+                                                           true = "> 20",
+                                                           false = time_to_delivery_fac))
+tb = qpcr_data_RGS13 %>% 
+  group_by(treatment,time_to_delivery_fac) %>% 
+  summarize(mean = mean(residuals))
+tb$time_to_delivery_fac = factor(tb$time_to_delivery_fac, 
+                                 levels = c("< 10","10 to 20","> 20"))
+ggplot(tb,aes(x = time_to_delivery_fac, 
+              y = mean, 
+              color = treatment,
+              group = treatment)) + 
+  geom_point(size = 4) + 
+  geom_line(size = 1) + 
+  xlab("time to delivery in weeks") +
+  ylab("mean residual expr") +
+  ggtitle("RGS13")
+lo_mock = dplyr::filter(tb, treatment == "mock" & time_to_delivery_fac == "< 10")$mean
+lo_h1n1 = dplyr::filter(tb, treatment == "H1N1" & time_to_delivery_fac == "< 10")$mean
+hi_mock = dplyr::filter(tb, treatment == "mock" & time_to_delivery_fac == "> 20")$mean
+hi_h1n1 = dplyr::filter(tb, treatment == "H1N1" & time_to_delivery_fac == "> 20")$mean
+ggsave(filename = "change_RGS13.png",width = 4,height = 3,dpi = 600)
+```
+
 Subset to `IFNL`.
 
 ```{r subset_IFNL}
@@ -184,6 +216,42 @@ lm_fit = lm(expr ~ gestage_delivery +
                gestage_delivery:treatment, 
             data = qpcr_data_IFNL)
 summary(lm_fit)
+```
+
+Interpretation.
+
+```{r change_IFNL,fig.width=4,fig.height=3}
+lm_fit = lm(expr ~ gestage_delivery + 
+               treatment + 
+               time_to_delivery + 
+               gestage_delivery:treatment, 
+            data = qpcr_data_IFNL)
+qpcr_data_IFNL %<>% mutate(residuals = residuals(lm_fit))
+qpcr_data_IFNL %<>% mutate(time_to_delivery_fac = if_else(time_to_delivery < 10,
+                                                          true = "< 10",
+                                                          false = "10 to 20"))
+qpcr_data_IFNL %<>% mutate(time_to_delivery_fac = if_else(time_to_delivery > 20,
+                                                          true = "> 20",
+                                                          false = time_to_delivery_fac))
+tb = qpcr_data_IFNL %>% 
+  group_by(treatment,time_to_delivery_fac) %>% 
+  summarize(mean = mean(residuals))
+tb$time_to_delivery_fac = factor(tb$time_to_delivery_fac, 
+                                 levels = c("< 10","10 to 20","> 20"))
+ggplot(tb,aes(x = time_to_delivery_fac, 
+              y = mean,
+              color = treatment,
+              group = treatment)) + 
+  geom_point(size = 4) + 
+  geom_line(size = 1) + 
+  xlab("time to delivery in weeks") +
+  ylab("mean residual expr") +
+  ggtitle("IFNL")
+lo_mock = dplyr::filter(tb, treatment == "mock" & time_to_delivery_fac == "< 10")$mean
+lo_h1n1 = dplyr::filter(tb, treatment == "H1N1" & time_to_delivery_fac == "< 10")$mean
+hi_mock = dplyr::filter(tb, treatment == "mock" & time_to_delivery_fac == "> 20")$mean
+hi_h1n1 = dplyr::filter(tb, treatment == "H1N1" & time_to_delivery_fac == "> 20")$mean
+ggsave(filename = "change_IFNL.png",width = 4,height = 3,dpi = 600)
 ```
 
 ## Session Info
