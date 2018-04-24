@@ -6,6 +6,8 @@ To rerun and reproduce all plots and results knit the corresponding Rmd files (e
 
 * [CaseControl_Microarray.Rmd](CaseControl_Microarray.Rmd)
 
+To run unstimulated analysis change treatment: "stim" to treatment: "unstim" in the header of the Rmd file.
+
 ## Time to Delivery Analysis
 
 * [TimeToDelivery_Microarray.Rmd](TimeToDelivery_Microarray.Rmd)
