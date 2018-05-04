@@ -20,7 +20,8 @@ Analyze data from qPCR experiments.
 Install necessary packages from bioconductor repository. Run this code only once to install packages.
 
 ```{r install_packages, warning=FALSE, message=FALSE}
-pkgs_needed = c("ggplot2","magrittr","readr","dplyr","readxl","stringr","tidyr","Rfit")
+pkgs_needed = c("ggplot2","magrittr","readr","dplyr","readxl","stringr","tidyr","Rfit",
+                "jtools","ggthemes","cowplot")
 letsinstall = setdiff(pkgs_needed, installed.packages()) 
 if (length(letsinstall) > 0) {
   source("http://bioconductor.org/biocLite.R")
@@ -39,6 +40,11 @@ library("readxl")
 library("stringr")
 library("tidyr")
 library("Rfit")
+library("jtools")
+library("ggthemes")
+library("cowplot")
+theme_set(theme_few())
+scale_colour_discrete = function(...) scale_colour_few()
 ```
 
 ## Import Data
@@ -89,7 +95,7 @@ ggplot(qpcr_data_RGS13,aes(x = time_to_delivery, y = expr, color = treatment)) +
   geom_point() +
   geom_text(aes(label = ifelse(expr > quantile(expr, probs = 0.95), sample_id,"")),
             hjust = 0, vjust = 0) +
-  ggtitle("RGS13")
+  ggtitle("RGS13") + scale_x_reverse()
 ggsave(filename = "RGS13.png",width = 4,height = 4,dpi = 600)
 ggplot(qpcr_data_RGS13,aes(x = gestage_delivery, y = expr, color = treatment)) +
   geom_smooth(method = lm, se = FALSE) +
@@ -136,7 +142,7 @@ tb = qpcr_data_RGS13 %>%
   group_by(treatment,time_to_delivery_fac) %>% 
   summarize(mean = mean(residuals))
 tb$time_to_delivery_fac = factor(tb$time_to_delivery_fac, 
-                                 levels = c("< 10","10 to 20","> 20"))
+                                 levels = c("> 20","10 to 20","< 10"))
 ggplot(tb,aes(x = time_to_delivery_fac, 
               y = mean, 
               color = treatment,
@@ -146,10 +152,6 @@ ggplot(tb,aes(x = time_to_delivery_fac,
   xlab("time to delivery in weeks") +
   ylab("mean residual expr") +
   ggtitle("RGS13")
-lo_mock = dplyr::filter(tb, treatment == "mock" & time_to_delivery_fac == "< 10")$mean
-lo_h1n1 = dplyr::filter(tb, treatment == "H1N1" & time_to_delivery_fac == "< 10")$mean
-hi_mock = dplyr::filter(tb, treatment == "mock" & time_to_delivery_fac == "> 20")$mean
-hi_h1n1 = dplyr::filter(tb, treatment == "H1N1" & time_to_delivery_fac == "> 20")$mean
 ggsave(filename = "change_RGS13.png",width = 4,height = 3,dpi = 600)
 ```
 
@@ -171,7 +173,8 @@ ggplot(qpcr_data_IFNL,aes(x = time_to_delivery, y = expr, color = treatment)) +
   geom_point() +
   geom_text(aes(label = ifelse(expr > quantile(expr, probs = 0.95), sample_id,"")),
             hjust = 0, vjust = 0) +
-  ggtitle("IFNL")
+  ggtitle("IFNL") + 
+  scale_x_reverse()
 ggsave(filename = "IFNL.png",width = 4,height = 4,dpi = 600)
 ggplot(qpcr_data_IFNL,aes(x = gestage_delivery, y = expr, color = treatment)) +
   geom_smooth(method = lm, se = FALSE) +
@@ -209,22 +212,63 @@ Refit linear model after removing possible outlier.
 
 ```{r fit_model_IFNL_outlier}
 qpcr_data_IFNL %<>% dplyr::filter(sample_id != "1.1")
-lm_fit = lm(expr ~ gestage_delivery + 
-               treatment + 
-               time_to_delivery + 
-               time_to_delivery:treatment +
-               gestage_delivery:treatment, 
+lm_fit = lm(expr ~ treatment*time_to_delivery + 
+              treatment*gestage_delivery + 
+              time_to_delivery*gestage_delivery,
             data = qpcr_data_IFNL)
 summary(lm_fit)
+```
+
+More modern looking visualization using the `jtools` package.
+
+```{r interact_plot, fig.width=4,fig.height=4}
+gtimeto = interact_plot(lm_fit, pred = "time_to_delivery", modx = "treatment",
+                        plot.points = TRUE, jitter = 0) + 
+  ggtitle("IFNL (treatment:time_to_delivery)") + scale_x_reverse()
+gtimeto
+interact_plot(lm_fit, pred = "gestage_delivery", modx = "treatment",
+              plot.points = TRUE, jitter = 0) + 
+  ggtitle("IFNL (treatment:gestage_delivery)")
+```
+
+Plot interaction using using only `ggplot`. The function `interact_plot` plots intercepts and slopes whit fixed `gestage_delivery` at their mean values.
+
+```{r my_interact_plot, fig.width=8,fig.height=4}
+plot_reverse = TRUE
+coefs = coef(lm_fit)
+gmine = ggplot(qpcr_data_IFNL, aes(x = time_to_delivery, y = expr, color = treatment)) + 
+  geom_point(size = 2)
+if(plot_reverse) {
+  gmine = gmine + scale_x_reverse() 
+  flip_slop = -1
+} else {
+  flip_slop = 1
+}
+used_colors = unique(ggplot_build(gmine)$data[[1]]$colour)
+mean_gestage_delivery = mean(qpcr_data_IFNL$gestage_delivery)
+intercept = coefs["(Intercept)"] + coefs["gestage_delivery"]*mean_gestage_delivery
+h1n1 = coefs["treatmentH1N1:gestage_delivery"]*mean_gestage_delivery
+slope = coefs["time_to_delivery:gestage_delivery"]*mean_gestage_delivery
+gmine = gmine + 
+  geom_abline(intercept = intercept,
+              slope = flip_slop*(slope + coefs["time_to_delivery"]), 
+              color = used_colors[1], size = 1) +
+  geom_abline(intercept = intercept + h1n1 + coefs["treatmentH1N1"], 
+              slope = flip_slop*(slope + coefs["time_to_delivery"] + coefs["treatmentH1N1:time_to_delivery"]),
+              color = used_colors[2], size = 1) +
+  ggtitle("IFNL (treatment:time_to_delivery)")
+plot_grid(gtimeto,gmine)
+ggsave(gmine, filename = "interaction_time_to_delivery_IFNL.png",width = 4,height = 3,dpi = 600)
 ```
 
 Interpretation.
 
 ```{r change_IFNL,fig.width=4,fig.height=3}
 lm_fit = lm(expr ~ gestage_delivery + 
-               treatment + 
-               time_to_delivery + 
-               gestage_delivery:treatment, 
+              treatment + 
+              time_to_delivery + 
+              gestage_delivery:treatment +
+              time_to_delivery*gestage_delivery, 
             data = qpcr_data_IFNL)
 qpcr_data_IFNL %<>% mutate(residuals = residuals(lm_fit))
 qpcr_data_IFNL %<>% mutate(time_to_delivery_fac = if_else(time_to_delivery < 10,
@@ -237,7 +281,7 @@ tb = qpcr_data_IFNL %>%
   group_by(treatment,time_to_delivery_fac) %>% 
   summarize(mean = mean(residuals))
 tb$time_to_delivery_fac = factor(tb$time_to_delivery_fac, 
-                                 levels = c("< 10","10 to 20","> 20"))
+                                 levels = c("> 20","10 to 20","< 10"))
 ggplot(tb,aes(x = time_to_delivery_fac, 
               y = mean,
               color = treatment,
@@ -247,10 +291,6 @@ ggplot(tb,aes(x = time_to_delivery_fac,
   xlab("time to delivery in weeks") +
   ylab("mean residual expr") +
   ggtitle("IFNL")
-lo_mock = dplyr::filter(tb, treatment == "mock" & time_to_delivery_fac == "< 10")$mean
-lo_h1n1 = dplyr::filter(tb, treatment == "H1N1" & time_to_delivery_fac == "< 10")$mean
-hi_mock = dplyr::filter(tb, treatment == "mock" & time_to_delivery_fac == "> 20")$mean
-hi_h1n1 = dplyr::filter(tb, treatment == "H1N1" & time_to_delivery_fac == "> 20")$mean
 ggsave(filename = "change_IFNL.png",width = 4,height = 3,dpi = 600)
 ```
 
