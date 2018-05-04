@@ -1,26 +1,28 @@
 ---
-title: "Time to Delivery on Follow-Up qPCR Data"
-author: Christof Seiler
-date: April, 2018
-output: html_document
-editor_options: 
-  chunk_output_type: console
+title: "Time to Delivery Analysis on Follow-Up qPCR Data"
+author:
+- name: Christof Seiler
+  affiliation: Department of Statistics, Stanford University
+output:
+  BiocStyle::html_document2:
+    toc_float: true
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-## Goal
+# Goal
 
 Analyze data from qPCR experiments.
 
-## Install Packages
+# Prerequisites
 
 Install necessary packages from bioconductor repository. Run this code only once to install packages.
 
 ```{r install_packages, warning=FALSE, message=FALSE}
-pkgs_needed = c("ggplot2","magrittr","readr","dplyr","readxl","stringr","tidyr","Rfit",
+pkgs_needed = c("ggplot2","magrittr","readr","dplyr",
+                "readxl","stringr","tidyr","Rfit",
                 "jtools","ggthemes","cowplot")
 letsinstall = setdiff(pkgs_needed, installed.packages()) 
 if (length(letsinstall) > 0) {
@@ -47,7 +49,7 @@ theme_set(theme_few())
 scale_colour_discrete = function(...) scale_colour_few()
 ```
 
-## Import Data
+# Import Data
 
 Read, merge, and tidy sample tables.
 
@@ -75,9 +77,9 @@ qpcr_data$treatment = factor(qpcr_data$treatment,levels = c("mock","H1N1"))
 qpcr_data
 ```
 
-## Fit Model
+# Fit Model
 
-### RGS13
+## RGS13
 
 Subset to RGS13.
 
@@ -151,7 +153,7 @@ gmine +
 ggsave(filename = "time_to_delivery_RGS13.png",width = 4,height = 3,dpi = 600)
 ```
 
-### IFNL
+## IFNL
 
 Subset to `IFNL`.
 
@@ -226,7 +228,7 @@ interact_plot(lm_fit, pred = "gestage_delivery", modx = "treatment",
 
 Plot interaction using using only `ggplot`. The function `interact_plot` plots intercepts and slopes with fixed `gestage_delivery` at their mean values.
 
-```{r my_interact_plot, fig.width=8,fig.height=4}
+```{r my_interact_plot, fig.width=8,fig.height=4,fig.wide=TRUE}
 plot_reverse = TRUE
 coefs = coef(lm_fit)
 gmine = ggplot(qpcr_data_IFNL, aes(x = time_to_delivery, y = expr, color = treatment)) + 
@@ -254,7 +256,7 @@ plot_grid(gtimeto,gmine)
 ggsave(gmine, filename = "interaction_time_to_delivery_IFNL.png",width = 4,height = 3,dpi = 600)
 ```
 
-## Session Info
+# Session Info {.unnumbered}
 
 ```{r session_info}
 sessionInfo()
