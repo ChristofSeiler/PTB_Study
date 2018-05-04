@@ -1,7 +1,7 @@
 ---
 title: "Time to Delivery Analysis on Follow-Up qPCR Data"
 author:
-- name: Christof Seiler
+  name: Christof Seiler
   affiliation: Department of Statistics, Stanford University
 output:
   BiocStyle::html_document2:
