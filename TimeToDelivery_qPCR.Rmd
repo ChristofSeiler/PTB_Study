@@ -96,7 +96,6 @@ ggplot(qpcr_data_RGS13,aes(x = time_to_delivery, y = expr, color = treatment)) +
   geom_text(aes(label = ifelse(expr > quantile(expr, probs = 0.95), sample_id,"")),
             hjust = 0, vjust = 0) +
   ggtitle("RGS13") + scale_x_reverse()
-ggsave(filename = "RGS13.png",width = 4,height = 4,dpi = 600)
 ggplot(qpcr_data_RGS13,aes(x = gestage_delivery, y = expr, color = treatment)) +
   geom_smooth(method = lm, se = FALSE) +
   geom_point() +
@@ -127,32 +126,27 @@ lm_fit = lm(expr ~ time_to_delivery + gestage_delivery, qpcr_data_RGS13)
 summary(lm_fit)
 ```
 
-Interpretation.
+Plot of fitted intercept and slope with `gestage_delivery` fixed at its mean value.
 
-```{r change_RGS13,fig.width=4,fig.height=3}
-lm_fit = lm(expr ~ gestage_delivery, qpcr_data_RGS13)
-qpcr_data_RGS13 %<>% mutate(residuals = residuals(lm_fit))
-qpcr_data_RGS13 %<>% mutate(time_to_delivery_fac = if_else(time_to_delivery < 10,
-                                                           true = "< 10",
-                                                           false = "10 to 20"))
-qpcr_data_RGS13 %<>% mutate(time_to_delivery_fac = if_else(time_to_delivery > 20,
-                                                           true = "> 20",
-                                                           false = time_to_delivery_fac))
-tb = qpcr_data_RGS13 %>% 
-  group_by(treatment,time_to_delivery_fac) %>% 
-  summarize(mean = mean(residuals))
-tb$time_to_delivery_fac = factor(tb$time_to_delivery_fac, 
-                                 levels = c("> 20","10 to 20","< 10"))
-ggplot(tb,aes(x = time_to_delivery_fac, 
-              y = mean, 
-              color = treatment,
-              group = treatment)) + 
-  geom_point(size = 4) + 
-  geom_line(size = 1) + 
-  xlab("time to delivery in weeks") +
-  ylab("mean residual expr") +
+```{r fit_model_RGS13_outlier_plot, fig.width=4,fig.height=4}
+plot_reverse = TRUE
+coefs = coef(lm_fit)
+gmine = ggplot(qpcr_data_RGS13, aes(x = time_to_delivery, y = expr, color = treatment)) + 
+  geom_point(size = 2)
+if(plot_reverse) {
+  gmine = gmine + scale_x_reverse() 
+  flip_slop = -1
+} else {
+  flip_slop = 1
+}
+used_colors = unique(ggplot_build(gmine)$data[[1]]$colour)
+gmine + 
+  geom_abline(intercept = coefs["(Intercept)"] +
+                mean(qpcr_data_RGS13$gestage_delivery)*coefs["gestage_delivery"],
+              slope = flip_slop*coefs["time_to_delivery"],
+              color = used_colors[1], size = 1) +
   ggtitle("RGS13")
-ggsave(filename = "change_RGS13.png",width = 4,height = 3,dpi = 600)
+ggsave(filename = "time_to_delivery_RGS13.png",width = 4,height = 3,dpi = 600)
 ```
 
 Subset to `IFNL`.
@@ -175,7 +169,6 @@ ggplot(qpcr_data_IFNL,aes(x = time_to_delivery, y = expr, color = treatment)) +
             hjust = 0, vjust = 0) +
   ggtitle("IFNL") + 
   scale_x_reverse()
-ggsave(filename = "IFNL.png",width = 4,height = 4,dpi = 600)
 ggplot(qpcr_data_IFNL,aes(x = gestage_delivery, y = expr, color = treatment)) +
   geom_smooth(method = lm, se = FALSE) +
   geom_point() +
@@ -231,7 +224,7 @@ interact_plot(lm_fit, pred = "gestage_delivery", modx = "treatment",
   ggtitle("IFNL (treatment:gestage_delivery)")
 ```
 
-Plot interaction using using only `ggplot`. The function `interact_plot` plots intercepts and slopes whit fixed `gestage_delivery` at their mean values.
+Plot interaction using using only `ggplot`. The function `interact_plot` plots intercepts and slopes with fixed `gestage_delivery` at their mean values.
 
 ```{r my_interact_plot, fig.width=8,fig.height=4}
 plot_reverse = TRUE
@@ -259,39 +252,6 @@ gmine = gmine +
   ggtitle("IFNL (treatment:time_to_delivery)")
 plot_grid(gtimeto,gmine)
 ggsave(gmine, filename = "interaction_time_to_delivery_IFNL.png",width = 4,height = 3,dpi = 600)
-```
-
-Interpretation.
-
-```{r change_IFNL,fig.width=4,fig.height=3}
-lm_fit = lm(expr ~ gestage_delivery + 
-              treatment + 
-              time_to_delivery + 
-              gestage_delivery:treatment +
-              time_to_delivery*gestage_delivery, 
-            data = qpcr_data_IFNL)
-qpcr_data_IFNL %<>% mutate(residuals = residuals(lm_fit))
-qpcr_data_IFNL %<>% mutate(time_to_delivery_fac = if_else(time_to_delivery < 10,
-                                                          true = "< 10",
-                                                          false = "10 to 20"))
-qpcr_data_IFNL %<>% mutate(time_to_delivery_fac = if_else(time_to_delivery > 20,
-                                                          true = "> 20",
-                                                          false = time_to_delivery_fac))
-tb = qpcr_data_IFNL %>% 
-  group_by(treatment,time_to_delivery_fac) %>% 
-  summarize(mean = mean(residuals))
-tb$time_to_delivery_fac = factor(tb$time_to_delivery_fac, 
-                                 levels = c("> 20","10 to 20","< 10"))
-ggplot(tb,aes(x = time_to_delivery_fac, 
-              y = mean,
-              color = treatment,
-              group = treatment)) + 
-  geom_point(size = 4) + 
-  geom_line(size = 1) + 
-  xlab("time to delivery in weeks") +
-  ylab("mean residual expr") +
-  ggtitle("IFNL")
-ggsave(filename = "change_IFNL.png",width = 4,height = 3,dpi = 600)
 ```
 
 ## Session Info
