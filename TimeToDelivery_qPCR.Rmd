@@ -77,6 +77,8 @@ qpcr_data
 
 ## Fit Model
 
+### RGS13
+
 Subset to RGS13.
 
 ```{r subset_RGS13}
@@ -149,6 +151,8 @@ gmine +
 ggsave(filename = "time_to_delivery_RGS13.png",width = 4,height = 3,dpi = 600)
 ```
 
+### IFNL
+
 Subset to `IFNL`.
 
 ```{r subset_IFNL}
@@ -180,11 +184,9 @@ ggplot(qpcr_data_IFNL,aes(x = gestage_delivery, y = expr, color = treatment)) +
 Fit model for `IFNL`.
 
 ```{r fit_model_IFNL}
-lm_fit = lm(expr ~ gestage_delivery + 
-               treatment + 
-               time_to_delivery + 
-               time_to_delivery:treatment +
-               gestage_delivery:treatment, 
+lm_fit = lm(expr ~ treatment*time_to_delivery + 
+              treatment*gestage_delivery + 
+              time_to_delivery*gestage_delivery, 
             data = qpcr_data_IFNL)
 summary(lm_fit)
 ```
@@ -192,11 +194,9 @@ summary(lm_fit)
 Fit robust model using rank-based estimates of regression coefficients.
 
 ```{r fit_model_rank}
-lm_fit = rfit(expr ~ gestage_delivery + 
-               treatment + 
-               time_to_delivery + 
-               time_to_delivery:treatment +
-               gestage_delivery:treatment, 
+lm_fit = rfit(expr ~ treatment*time_to_delivery + 
+              treatment*gestage_delivery + 
+              time_to_delivery*gestage_delivery, 
             data = qpcr_data_IFNL)
 summary(lm_fit)
 ```
@@ -217,11 +217,11 @@ More modern looking visualization using the `jtools` package.
 ```{r interact_plot, fig.width=4,fig.height=4}
 gtimeto = interact_plot(lm_fit, pred = "time_to_delivery", modx = "treatment",
                         plot.points = TRUE, jitter = 0) + 
-  ggtitle("IFNL (treatment:time_to_delivery)") + scale_x_reverse()
+  ggtitle("IFNL") + scale_x_reverse()
 gtimeto
 interact_plot(lm_fit, pred = "gestage_delivery", modx = "treatment",
               plot.points = TRUE, jitter = 0) + 
-  ggtitle("IFNL (treatment:gestage_delivery)")
+  ggtitle("IFNL")
 ```
 
 Plot interaction using using only `ggplot`. The function `interact_plot` plots intercepts and slopes with fixed `gestage_delivery` at their mean values.
@@ -249,7 +249,7 @@ gmine = gmine +
   geom_abline(intercept = intercept + h1n1 + coefs["treatmentH1N1"], 
               slope = flip_slop*(slope + coefs["time_to_delivery"] + coefs["treatmentH1N1:time_to_delivery"]),
               color = used_colors[2], size = 1) +
-  ggtitle("IFNL (treatment:time_to_delivery)")
+  ggtitle("IFNL")
 plot_grid(gtimeto,gmine)
 ggsave(gmine, filename = "interaction_time_to_delivery_IFNL.png",width = 4,height = 3,dpi = 600)
 ```
