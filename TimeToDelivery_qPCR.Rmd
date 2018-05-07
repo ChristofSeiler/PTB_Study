@@ -54,11 +54,15 @@ scale_colour_discrete = function(...) scale_colour_few()
 Read, merge, and tidy sample tables.
 
 ```{r read_sample_table}
-new_matched = read_excel("MSS Case_Control Matches (Masked)_new_matched.xlsx")
-new_matched %<>% mutate(time_to_delivery_calc = gestage_delivery - gestage_enroll)
-qpcr_data = read_excel("PTB Raw qPCR data.xlsx")
+sample_info_filename = "MSS Case_Control Matches (Masked)_new_matched.xlsx"
+data_filename = "PTB Raw qPCR data.xlsx"
+new_matched = read_excel(sample_info_filename)
+new_matched %<>% mutate(time_to_delivery_calc = 
+                          gestage_delivery - gestage_enroll)
+qpcr_data = read_excel(data_filename)
 qpcr_data$SampleID %<>% as.character
-qpcr_data %<>% dplyr::left_join(new_matched,by = "SampleID", suffix = c("", "2"))
+qpcr_data %<>% dplyr::left_join(new_matched,by = "SampleID", 
+                                suffix = c("", "2"))
 qpcr_data %<>% dplyr::select(sample_id = SampleID,
                              ptb_case,
                              time_to_delivery = time_to_delivery_calc,
@@ -68,12 +72,17 @@ qpcr_data %<>% dplyr::select(sample_id = SampleID,
                              IFNL_flu)
 qpcr_data %<>% gather(RGS13_baseline, IFNL_baseline, IFNL_flu, 
                       key = "key", value = "expr")
-qpcr_data %<>% mutate(treatment = if_else(condition = str_detect(qpcr_data$key,"baseline"),
-                                          true = "mock",
-                                          false = "H1N1"))
-qpcr_data %<>% mutate(gene_name = sapply(strsplit(qpcr_data$key,split = "_"),function(str) str[[1]]))
+qpcr_data %<>% mutate(
+  treatment = if_else(condition = str_detect(qpcr_data$key, "baseline"),
+                      true = "mock",
+                      false = "H1N1"))
+qpcr_data %<>% mutate(
+  gene_name = sapply(strsplit(qpcr_data$key,split = "_"),
+                     function(str) str[[1]]))
 qpcr_data %<>% select(-key)
 qpcr_data$treatment = factor(qpcr_data$treatment,levels = c("mock","H1N1"))
+qpcr_data %<>% rename(gestational_age = gestage_delivery)
+qpcr_data %<>% rename(ptb = ptb_case)
 qpcr_data
 ```
 
@@ -92,33 +101,35 @@ Plotting to see possible outliers.
 ```{r plotting_RGS13,fig.width=4,fig.height=4}
 ggplot(qpcr_data_RGS13,aes(expr)) + 
   geom_histogram(bins = 30) + 
-  facet_wrap(~ptb_case) +
+  facet_wrap(~ptb) +
   ggtitle("RGS13")
-ggplot(qpcr_data_RGS13,aes(x = time_to_delivery, y = expr, color = treatment)) +
+ggplot(qpcr_data_RGS13,aes(x = time_to_delivery, y = expr, 
+                           color = treatment)) +
   geom_smooth(method = lm, se = FALSE) +
   geom_point() +
-  geom_text(aes(label = ifelse(expr > quantile(expr, probs = 0.95), sample_id,"")),
-            hjust = 0, vjust = 0) +
+  geom_text(aes(label = ifelse(expr > quantile(expr, probs = 0.95), 
+                               sample_id,"")), hjust = 0, vjust = 0) +
   ggtitle("RGS13") + scale_x_reverse()
-ggplot(qpcr_data_RGS13,aes(x = gestage_delivery, y = expr, color = treatment)) +
+ggplot(qpcr_data_RGS13,aes(x = gestational_age, y = expr, 
+                           color = treatment)) +
   geom_smooth(method = lm, se = FALSE) +
   geom_point() +
-    geom_text(aes(label = ifelse(expr > quantile(expr, probs = 0.95), sample_id,"")),
-            hjust = 0, vjust = 0) +
+  geom_text(aes(label = ifelse(expr > quantile(expr, probs = 0.95), 
+                               sample_id,"")), hjust = 0, vjust = 0) +
   ggtitle("RGS13")
 ```
 
 Fit model for `RGS13`.
 
 ```{r fit_model_RGS13}
-lm_fit = lm(expr ~ time_to_delivery + gestage_delivery, qpcr_data_RGS13)
+lm_fit = lm(expr ~ time_to_delivery + gestational_age, qpcr_data_RGS13)
 summary(lm_fit)
 ```
 
 Fit robust model using rank-based estimates of regression coefficients.
 
 ```{r fit_model_RGS13_rank}
-lm_fit = rfit(expr ~ time_to_delivery + gestage_delivery, qpcr_data_RGS13)
+lm_fit = rfit(expr ~ time_to_delivery + gestational_age, qpcr_data_RGS13)
 summary(lm_fit)
 ```
 
@@ -126,16 +137,17 @@ Remove potential outlier and refit model to see if we still obtain a similar res
 
 ```{r fit_model_RGS13_outlier}
 qpcr_data_RGS13 %<>% dplyr::filter(sample_id != "16.2")
-lm_fit = lm(expr ~ time_to_delivery + gestage_delivery, qpcr_data_RGS13)
+lm_fit = lm(expr ~ time_to_delivery + gestational_age, qpcr_data_RGS13)
 summary(lm_fit)
 ```
 
-Plot of fitted intercept and slope with `gestage_delivery` fixed at its mean value.
+Plot of fitted intercept and slope with `gestational_age` fixed at its mean value.
 
 ```{r fit_model_RGS13_outlier_plot, fig.width=4,fig.height=4}
 plot_reverse = TRUE
 coefs = coef(lm_fit)
-gmine = ggplot(qpcr_data_RGS13, aes(x = time_to_delivery, y = expr, color = treatment)) + 
+gmine = ggplot(qpcr_data_RGS13, aes(x = time_to_delivery, y = expr, 
+                                    color = treatment, shape = ptb)) + 
   geom_point(size = 2)
 if(plot_reverse) {
   gmine = gmine + scale_x_reverse() 
@@ -144,13 +156,13 @@ if(plot_reverse) {
   flip_slop = 1
 }
 used_colors = unique(ggplot_build(gmine)$data[[1]]$colour)
-gmine + 
-  geom_abline(intercept = coefs["(Intercept)"] +
-                mean(qpcr_data_RGS13$gestage_delivery)*coefs["gestage_delivery"],
-              slope = flip_slop*coefs["time_to_delivery"],
-              color = used_colors[1], size = 1) +
-  ggtitle("RGS13")
-ggsave(filename = "time_to_delivery_RGS13.png",width = 4,height = 3,dpi = 600)
+mean_gestage = mean(qpcr_data_RGS13$gestational_age)
+gmine + geom_abline(intercept = coefs["(Intercept)"] + 
+                      mean_gestage*coefs["gestational_age"],
+                    slope = flip_slop*coefs["time_to_delivery"],
+                    color = used_colors[1], size = 1) + ggtitle("RGS13")
+ggsave(filename = "time_to_delivery_RGS13.png",
+       width = 4,height = 3,dpi = 600)
 ```
 
 ## IFNL
@@ -166,20 +178,22 @@ Plotting to see possible outliers.
 ```{r plotting_IFNL,fig.width=4,fig.height=4}
 ggplot(qpcr_data_IFNL,aes(expr)) + 
   geom_histogram(bins = 30) + 
-  facet_wrap(~ptb_case) +
+  facet_wrap(~ptb) +
   ggtitle("IFNL")
-ggplot(qpcr_data_IFNL,aes(x = time_to_delivery, y = expr, color = treatment)) +
+ggplot(qpcr_data_IFNL,aes(x = time_to_delivery, y = expr, 
+                          color = treatment)) +
   geom_smooth(method = lm, se = FALSE) +
   geom_point() +
-  geom_text(aes(label = ifelse(expr > quantile(expr, probs = 0.95), sample_id,"")),
-            hjust = 0, vjust = 0) +
+  geom_text(aes(label = ifelse(expr > quantile(expr, probs = 0.95), 
+                               sample_id,"")), hjust = 0, vjust = 0) +
   ggtitle("IFNL") + 
   scale_x_reverse()
-ggplot(qpcr_data_IFNL,aes(x = gestage_delivery, y = expr, color = treatment)) +
+ggplot(qpcr_data_IFNL,aes(x = gestational_age, y = expr, 
+                          color = treatment)) +
   geom_smooth(method = lm, se = FALSE) +
   geom_point() +
-    geom_text(aes(label = ifelse(expr > quantile(expr, probs = 0.95), sample_id,"")),
-            hjust = 0, vjust = 0) +
+  geom_text(aes(label = ifelse(expr > quantile(expr, probs = 0.95), 
+                               sample_id,"")), hjust = 0, vjust = 0) +
   ggtitle("IFNL")
 ```
 
@@ -187,8 +201,8 @@ Fit model for `IFNL`.
 
 ```{r fit_model_IFNL}
 lm_fit = lm(expr ~ treatment*time_to_delivery + 
-              treatment*gestage_delivery + 
-              time_to_delivery*gestage_delivery, 
+              treatment*gestational_age + 
+              time_to_delivery*gestational_age, 
             data = qpcr_data_IFNL)
 summary(lm_fit)
 ```
@@ -197,8 +211,8 @@ Fit robust model using rank-based estimates of regression coefficients.
 
 ```{r fit_model_rank}
 lm_fit = rfit(expr ~ treatment*time_to_delivery + 
-              treatment*gestage_delivery + 
-              time_to_delivery*gestage_delivery, 
+              treatment*gestational_age + 
+              time_to_delivery*gestational_age, 
             data = qpcr_data_IFNL)
 summary(lm_fit)
 ```
@@ -208,8 +222,8 @@ Refit linear model after removing possible outlier.
 ```{r fit_model_IFNL_outlier}
 qpcr_data_IFNL %<>% dplyr::filter(sample_id != "1.1")
 lm_fit = lm(expr ~ treatment*time_to_delivery + 
-              treatment*gestage_delivery + 
-              time_to_delivery*gestage_delivery,
+              treatment*gestational_age + 
+              time_to_delivery*gestational_age,
             data = qpcr_data_IFNL)
 summary(lm_fit)
 ```
@@ -217,21 +231,23 @@ summary(lm_fit)
 More modern looking visualization using the `jtools` package.
 
 ```{r interact_plot, fig.width=4,fig.height=4}
-gtimeto = interact_plot(lm_fit, pred = "time_to_delivery", modx = "treatment",
+gtimeto = interact_plot(lm_fit, pred = "time_to_delivery", 
+                        modx = "treatment",
                         plot.points = TRUE, jitter = 0) + 
   ggtitle("IFNL") + scale_x_reverse()
 gtimeto
-interact_plot(lm_fit, pred = "gestage_delivery", modx = "treatment",
+interact_plot(lm_fit, pred = "gestational_age", modx = "treatment",
               plot.points = TRUE, jitter = 0) + 
   ggtitle("IFNL")
 ```
 
-Plot interaction using using only `ggplot`. The function `interact_plot` plots intercepts and slopes with fixed `gestage_delivery` at their mean values.
+Plot interaction using using only `ggplot`. The function `interact_plot` plots intercepts and slopes with fixed `gestational_age` at their mean values.
 
 ```{r my_interact_plot, fig.width=8,fig.height=4,fig.wide=TRUE}
 plot_reverse = TRUE
 coefs = coef(lm_fit)
-gmine = ggplot(qpcr_data_IFNL, aes(x = time_to_delivery, y = expr, color = treatment)) + 
+gmine = ggplot(qpcr_data_IFNL, aes(x = time_to_delivery, y = expr, 
+                                   color = treatment, shape = ptb)) + 
   geom_point(size = 2)
 if(plot_reverse) {
   gmine = gmine + scale_x_reverse() 
@@ -240,20 +256,23 @@ if(plot_reverse) {
   flip_slop = 1
 }
 used_colors = unique(ggplot_build(gmine)$data[[1]]$colour)
-mean_gestage_delivery = mean(qpcr_data_IFNL$gestage_delivery)
-intercept = coefs["(Intercept)"] + coefs["gestage_delivery"]*mean_gestage_delivery
-h1n1 = coefs["treatmentH1N1:gestage_delivery"]*mean_gestage_delivery
-slope = coefs["time_to_delivery:gestage_delivery"]*mean_gestage_delivery
+mean_gestational_age = mean(qpcr_data_IFNL$gestational_age)
+intercept = coefs["(Intercept)"] + 
+  coefs["gestational_age"]*mean_gestational_age
+h1n1 = coefs["treatmentH1N1:gestational_age"]*mean_gestational_age
+slope = coefs["time_to_delivery:gestational_age"]*mean_gestational_age
 gmine = gmine + 
   geom_abline(intercept = intercept,
               slope = flip_slop*(slope + coefs["time_to_delivery"]), 
               color = used_colors[1], size = 1) +
   geom_abline(intercept = intercept + h1n1 + coefs["treatmentH1N1"], 
-              slope = flip_slop*(slope + coefs["time_to_delivery"] + coefs["treatmentH1N1:time_to_delivery"]),
+              slope = flip_slop*(slope + coefs["time_to_delivery"] +
+                                   coefs["treatmentH1N1:time_to_delivery"]),
               color = used_colors[2], size = 1) +
   ggtitle("IFNL")
 plot_grid(gtimeto,gmine)
-ggsave(gmine, filename = "interaction_time_to_delivery_IFNL.png",width = 4,height = 3,dpi = 600)
+ggsave(gmine, filename = "interaction_time_to_delivery_IFNL.png",
+       width = 4, height = 3, dpi = 600)
 ```
 
 # Session Info {.unnumbered}
