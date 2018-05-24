@@ -1,25 +1,29 @@
 ---
 title: "Time to Delivery on Microarray Data"
-author: Christof Seiler
-date: February, 2017
-output: html_document
+author:
+  name: Christof Seiler
+  affiliation: Department of Statistics, Stanford University
+output:
+  BiocStyle::html_document2:
+    toc_float: true
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-## Goal
+# Goal
 
 1. Load and normalize data using ``oligo``
 2. Differential analysis using ``limma``
 
-## Install Packages
+# Prerequisites
 
 Install necessary packages from bioconductor repository. Run this code only once to install packages.
 
 ```{r install_packages, warning=FALSE, message=FALSE}
-pkgs_needed = c("oligo","limma","ggfortify","magrittr","hta20transcriptcluster.db",
+pkgs_needed = c("oligo","limma","affycoretools","genefilter",
+                "hta20transcriptcluster.db","ggfortify","magrittr",
                 "statmod","stringr")
 letsinstall = setdiff(pkgs_needed, installed.packages()) 
 if (length(letsinstall) > 0) {
@@ -33,14 +37,16 @@ Load packages.
 ```{r load_packages, warning=FALSE, message=FALSE}
 library("oligo")
 library("limma")
+library("affycoretools")
+library("genefilter")
+library("hta20transcriptcluster.db")
 library("ggfortify")
 library("magrittr")
-library("hta20transcriptcluster.db")
 library("statmod")
 library("stringr")
 ```
 
-## Import Data
+# Import Data
 
 Then load Affymetrix CEL files. At this stage, Bioconductor will automatically download the necessary annotation packages and install them for us. 
 
@@ -68,12 +74,38 @@ slotNames(rawData)
 sampleNames(rawData)
 ```
 
-## Preprocessing
+# Preprocessing
 
 Background subtraction, normalization and summarization using median-polish.
 
 ```{r}
 eset = rma(rawData)
+```
+
+Get rid of background probes and annotate using functions in `affycoretools` package.
+
+```{r affycoretools}
+dbGetQuery(db(pd.hta.2.0), "select * from type_dict;")
+table(getMainProbes("pd.hta.2.0")$type)
+eset = getMainProbes(eset)
+```
+
+Filter probes that we cannot map to symbols.
+
+```{r filter_probes}
+e2s = toTable(hta20transcriptclusterSYMBOL)
+prob_ids = rownames(exprs(eset))
+keep_ids = which(prob_ids %in% e2s$probe_id)
+eset = ExpressionSet(assayData = exprs(eset)[keep_ids,],
+                     phenoData = phenoData(eset),
+                     experimentData = experimentData(eset),
+                     annotation = annotation(eset))
+#eset = varFilter(eset)
+```
+
+Save to file.
+
+```{r save_eset}
 class(eset)
 show(eset)
 exprs(eset)[1:10, 1:2]
@@ -114,7 +146,7 @@ autoplot(res_pca, data = sample_table, colour = 'gestage_enroll', size = 3)
 autoplot(res_pca, data = sample_table, colour = 'time_to_delivery', size = 3)
 ```
 
-## Differential Expression Analyses
+# Differential Expression Analyses
 
 Use ``limma`` for linear models to assess difference in expression. Define design matrix.
 
@@ -209,7 +241,7 @@ for(i in 1:length(gene_table_list)) {
 }
 ```
 
-## Plot Individual Probes
+# Plot Individual Probes
 
 Plot the raw abundances for individual probes against explanatory variables. Run day effects?
 
@@ -256,7 +288,7 @@ Difference in slope between H1N1 and Mock.
 plot_probe("TC19000540.hg.1")
 ```
 
-## Session Info
+# Session Info {.unnumbered}
 
 ```{r session_info}
 sessionInfo()

@@ -1,0 +1,71 @@
+---
+title: "Validation of RSG13"
+author:
+  name: Christof Seiler
+  affiliation: Department of Statistics, Stanford University
+output:
+  BiocStyle::html_document2:
+    toc_float: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Goal
+
+Compare expression of RGS13 in related pregnency studies that are publicatly available. Use the following studies: 
+
+1. [Whole blood gene expression profile associated with spontaneous preterm birth](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE46510)
+2. [Maternal Whole Blood Gene Expression at 18 and 28 weeks of Gestation Associated with Spontaneous Preterm Birth in Asymptomatic Women](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE59491)
+3. [Unique inflammatory transcriptome profiles at the maternal fetal interface and onset of human preterm and term birth](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE73685)
+
+# Prerequisites
+
+Install necessary packages from bioconductor repository. Run this code only once to install packages.
+
+```{r install_packages, warning=FALSE, message=FALSE}
+pkgs_needed = c("hta20transcriptcluster.db",
+                "hgu133plus2.db",
+                "hugene21sttranscriptcluster.db",
+                "hugene10sttranscriptcluster.db",
+                "magrittr",
+                "dplyr")
+letsinstall = setdiff(pkgs_needed, installed.packages()) 
+if (length(letsinstall) > 0) {
+  source("http://bioconductor.org/biocLite.R")
+  biocLite(letsinstall)
+}
+```
+
+Load packages.
+
+```{r load_packages, warning=FALSE, message=FALSE}
+library("hta20transcriptcluster.db")
+library("hgu133plus2.db")
+library("hugene21sttranscriptcluster.db")
+library("hugene10sttranscriptcluster.db")
+library("magrittr")
+library("dplyr")
+```
+
+# Check RGS13
+
+Check if RGS13 is available on microarray.
+
+```{r check_rgs13}
+e2s_our = toTable(hta20transcriptclusterSYMBOL)
+e2s_study1 = toTable(hgu133plus2SYMBOL)
+e2s_study2 = toTable(hugene21sttranscriptclusterSYMBOL)
+e2s_study3 = toTable(hugene10sttranscriptclusterSYMBOL)
+e2s_our %>% dplyr::filter(symbol == "RGS13")
+e2s_study1 %>% dplyr::filter(symbol == "RGS13")
+e2s_study2 %>% dplyr::filter(symbol == "RGS13")
+e2s_study3 %>% dplyr::filter(symbol == "RGS13")
+```
+
+# Session Info {.unnumbered}
+
+```{r session_info}
+sessionInfo()
+```

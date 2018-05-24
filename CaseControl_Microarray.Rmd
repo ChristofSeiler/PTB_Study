@@ -1,8 +1,11 @@
 ---
 title: "Case-Control with Gestational Age Matching"
-author: Christof Seiler
-date: April, 2018
-output: html_document
+author:
+  name: Christof Seiler
+  affiliation: Department of Statistics, Stanford University
+output:
+  BiocStyle::html_document2:
+    toc_float: true
 params:
   treatment: "stim"
 ---
@@ -11,20 +14,19 @@ params:
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-## Goal
+# Goal
 
 1. Load and normalize data using ``oligo``
 2. Differential analysis using ``limma``
 
-## Install Packages
+# Prerequisites
 
 Install necessary packages from bioconductor repository. Run this code only once to install packages.
 
 ```{r install_packages, warning=FALSE, message=FALSE}
-pkgs_needed = c("oligo","limma",
-                "hta20transcriptcluster.db","pd.hta.2.0",
-                "MatchIt",
-                "ggfortify","magrittr","statmod","readr","dplyr","readxl","stringr")
+pkgs_needed = c("oligo","limma","hta20transcriptcluster.db","pd.hta.2.0",
+                "affycoretools","genefilter","MatchIt","ggfortify",
+                "magrittr","statmod","readr","dplyr","readxl","stringr")
 letsinstall = setdiff(pkgs_needed, installed.packages()) 
 if (length(letsinstall) > 0) {
   source("http://bioconductor.org/biocLite.R")
@@ -38,6 +40,8 @@ Load packages.
 library("oligo")
 library("limma")
 library("hta20transcriptcluster.db")
+library("affycoretools")
+library("genefilter")
 library("MatchIt")
 library("ggfortify")
 library("magrittr")
@@ -48,7 +52,7 @@ library("readxl")
 library("stringr")
 ```
 
-## Import Data
+# Import Data
 
 Read sample tables. Merge with sample information table.
 
@@ -126,7 +130,7 @@ rawData = read.celfiles(sample_table$file_name,
 rawData
 ```
 
-## Quality Control
+# Quality Control
 
 MA plots on the first three samples.
 
@@ -134,12 +138,38 @@ MA plots on the first three samples.
 MAplot(rawData[, 1:3], pairs=TRUE)
 ```
 
-## Preprocessing
+# Preprocessing
 
 Background subtraction, normalization and summarization using median-polish.
 
 ```{r normalizing}
 eset = rma(rawData)
+```
+
+Get rid of background probes and annotate using functions in `affycoretools` package.
+
+```{r affycoretools}
+dbGetQuery(db(pd.hta.2.0), "select * from type_dict;")
+table(getMainProbes("pd.hta.2.0")$type)
+eset = getMainProbes(eset)
+```
+
+Filter probes that we cannot map to symbols.
+
+```{r filter_probes}
+e2s = toTable(hta20transcriptclusterSYMBOL)
+prob_ids = rownames(exprs(eset))
+keep_ids = which(prob_ids %in% e2s$probe_id)
+eset = ExpressionSet(assayData = exprs(eset)[keep_ids,],
+                     phenoData = phenoData(eset),
+                     experimentData = experimentData(eset),
+                     annotation = annotation(eset))
+#eset = varFilter(eset)
+```
+
+Save to file.
+
+```{r save_eset}
 class(eset)
 show(eset)
 exprs(eset)[1:10, 1:2]
@@ -177,7 +207,7 @@ autoplot(res_pca,
          asp = asp_ratio)
 ```
 
-## Differential Expression Analyses
+# Differential Expression Analyses
 
 Use ``limma`` for linear models to assess difference in expression. Paired analysis as described in Section 9.4.1 on page 42 in the [limma vignette](https://www.bioconductor.org/packages/devel/bioc/vignettes/limma/inst/doc/usersguide.pdf).
 
@@ -207,7 +237,6 @@ volcanoplot(fit, coef = "treatcase", highlight = 10)
 Map between manufacturer identifiers and gene symbols.
 
 ```{r}
-e2s = toTable(hta20transcriptclusterSYMBOL)
 map_gene_symbol = function(gene_table) {
   prob_ids = rownames(gene_table)
   symbol = sapply(prob_ids,function(prob_id) {
@@ -223,7 +252,7 @@ gene_table = map_gene_symbol(gene_table)
 print(head(gene_table, n = 10))
 ```
 
-## Export Results
+# Export Results
 
 Write to text file.
 
@@ -231,7 +260,7 @@ Write to text file.
 write_csv(gene_table,path = "gene_table_results.csv")
 ```
 
-## Session Info
+# Session Info {.unnumbered}
 
 ```{r session_info}
 sessionInfo()
