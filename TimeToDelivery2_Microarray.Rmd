@@ -57,12 +57,12 @@ Then load Affymetrix CEL files. At this stage, Bioconductor will automatically d
 ```{r}
 sample_table = read.csv("sample_table.csv")
 cel_filenames = paste0(as.character(sample_table$array_name),".CEL")
-sample_names = paste(sample_table$sample_id,
-                     sample_table$condition,
-                     sample_table$treatment,sep = "_")
 sample_table %<>% filter(treatment == params$treatment)
 sample_table$time_to_delivery = sample_table$gestage_delivery - 
   sample_table$gestage_enroll
+sample_names = paste(sample_table$sample_id,
+                     sample_table$condition,
+                     sample_table$treatment,sep = "_")
 pd = as(sample_table, "AnnotatedDataFrame")
 rawData = read.celfiles(cel_filenames, phenoData = pd, 
                         sampleNames = sample_names)
