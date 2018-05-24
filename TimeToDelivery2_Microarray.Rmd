@@ -1,11 +1,13 @@
 ---
-title: "Time to Delivery on Microarray Data"
+title: "Case-Control with Gestational Age Matching"
 author:
   name: Christof Seiler
   affiliation: Department of Statistics, Stanford University
 output:
   BiocStyle::html_document2:
     toc_float: true
+params:
+  treatment: "Mock"
 ---
 
 ```{r setup, include=FALSE}
@@ -50,24 +52,21 @@ library("dplyr")
 
 # Import Data
 
-Then load Affymetrix CEL files. At this stage, Bioconductor will automatically download the necessary annotation packages and install them for us. 
+Then load Affymetrix CEL files. At this stage, Bioconductor will automatically download the necessary annotation packages and install them for us. Add time to delivery variable.
 
 ```{r}
 sample_table = read.csv("sample_table.csv")
 cel_filenames = paste0(as.character(sample_table$array_name),".CEL")
-pd = as(sample_table, "AnnotatedDataFrame")
 sample_names = paste(sample_table$sample_id,
                      sample_table$condition,
                      sample_table$treatment,sep = "_")
+sample_table %<>% filter(treatment == params$treatment)
+sample_table$time_to_delivery = sample_table$gestage_delivery - 
+  sample_table$gestage_enroll
+pd = as(sample_table, "AnnotatedDataFrame")
 rawData = read.celfiles(cel_filenames, phenoData = pd, 
                         sampleNames = sample_names)
 rawData
-```
-
-This is the downloaded annotation package:
-
-```{r}
-pd.hta.2.0
 ```
 
 # Preprocessing
@@ -125,47 +124,12 @@ autoplot(res_pca, data = sample_table,
          shape = FALSE, label = TRUE, label.size = 3, asp = asp_ratio)
 ```
 
-Add time to delivery variable.
-
-```{r}
-sample_table$time_to_delivery = sample_table$gestage_delivery - 
-  sample_table$gestage_enroll
-```
-
-Annotate PCA with experimental information.
-
-```{r}
-sample_table$run_batch = as.factor(sample_table$run_batch)
-autoplot(res_pca, data = sample_table, colour = 'rin', size = 3, 
-         asp = asp_ratio)
-autoplot(res_pca, data = sample_table, colour = 'run_day', size = 3, 
-         asp = asp_ratio)
-autoplot(res_pca, data = sample_table, colour = 'run_batch', size = 3, 
-         asp = asp_ratio)
-autoplot(res_pca, data = sample_table, colour = 'viable_cell_count', 
-         asp = asp_ratio, size = 3)
-autoplot(res_pca, data = sample_table, colour = 'viability', size = 3,
-         asp = asp_ratio)
-autoplot(res_pca, data = sample_table, colour = 'gestage_delivery', 
-         asp = asp_ratio, size = 3)
-autoplot(res_pca, data = sample_table, colour = 'gestage_enroll', size = 3, 
-         asp = asp_ratio)
-autoplot(res_pca, data = sample_table, colour = 'time_to_delivery', 
-         asp = asp_ratio, size = 3)
-```
-
 # Differential Expression Analyses
 
 Use ``limma`` for linear models to assess difference in expression. Define design matrix.
 
 ```{r}
-sample_table$sample_id = factor(sample_table$sample_id)
-sample_table$treatment = factor(sample_table$treatment,
-                                levels = c("Mock","H1N1"))
-design = model.matrix(~ treatment*time_to_delivery +
-                        treatment*gestage_delivery +
-                        time_to_delivery*gestage_delivery,
-                      sample_table)
+design = model.matrix(~ time_to_delivery + gestage_delivery, sample_table)
 colnames(design) = str_replace(string = colnames(design),
                                pattern = ":",replacement = "_") %>%
   str_replace(string = .,pattern = "treatment",replacement = "")
@@ -179,19 +143,18 @@ Automatic independent filtering:
 3. Then compute moderated t-tests.
 4. The topTable command provides us a way of ranking genes for further evaluation. In the case below, we adjust for multiple testing by FDR. 
 
-```{r}
+```{r paired_samples}
 mean_expr = rowMeans(exprs(eset))
 thres_candidates = seq(min(mean_expr),quantile(mean_expr, probs = 0.95),1)
 fit_list = lapply(thres_candidates, function(thres) {
   cat("Automatic independent filtering: thres = ", thres,"\n")
+  # threshold
   eset_thres = ExpressionSet(assayData = exprs(eset)[mean_expr >= thres,],
                              phenoData = phenoData(eset),
                              experimentData = experimentData(eset),
                              annotation = annotation(eset))
-  corfit = duplicateCorrelation(eset_thres, design,
-                                block = sample_table$sample_id)
-  fit = lmFit(eset_thres, design, block = sample_table$sample_id,
-              correlation = corfit$consensus)
+  # fit model
+  fit = lmFit(eset_thres, design)
   eBayes(fit)
 })
 num_sig = sapply(fit_list, function(fit) {
@@ -269,44 +232,6 @@ for(i in 1:length(gene_table_list)) {
   cat("writting:",file_name_results,"\n")
   write.csv(gene_table_list[[i]],file = file_name_results)
 }
-```
-
-# Plot Individual Probes
-
-Plot the raw abundances for individual probes against explanatory variables. Run day effects?
-
-```{r}
-plot_probe = function(probe_name) {
-  probe_id = which(rownames(exprs(eset)) == probe_name)
-  df_probe = data.frame(probe = exprs(eset)[probe_id,],
-                        sample_table)
-  ggplot(df_probe, aes(x = time_to_delivery,y = probe,color = run_day)) + 
-    geom_point() + 
-    facet_wrap(~ treatment) +
-    ggtitle(probe_name) +
-    scale_x_reverse()
-}
-plot_probe("TC19000540.hg.1")
-```
-
-Difference in slope.
-
-```{r}
-plot_probe = function(probe_name) {
-  probe_id = which(rownames(exprs(eset)) == probe_name)
-  df_probe = data.frame(probe = exprs(eset)[probe_id,],
-                        sample_table)
-  ggplot(df_probe, aes(x = time_to_delivery,y = probe)) + 
-    geom_point() + 
-    geom_smooth(method = "lm", se = FALSE) +
-    facet_wrap(~ treatment) +
-    ggtitle(probe_name) + 
-    scale_x_reverse()
-}
-plot_probe("TC19000540.hg.1")
-plot_probe("TC09000102.hg.1")
-plot_probe("TC09000954.hg.1")
-plot_probe("TC19000876.hg.1")
 ```
 
 # Session Info {.unnumbered}

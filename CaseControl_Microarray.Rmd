@@ -239,7 +239,7 @@ fit_list = lapply(thres_candidates, function(thres) {
   pair = factor(targets$pair)
   treat = factor(targets$ptb_case, levels = c("control","case"))
   design = model.matrix(~ pair + treat)
-  fit = lmFit(eset, design)
+  fit = lmFit(eset_thres, design)
   eBayes(fit)
 })
 num_sig = sapply(fit_list, function(fit) {
