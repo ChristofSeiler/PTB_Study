@@ -116,12 +116,12 @@ res_pca = prcomp(t(exprs(eset)),scale. = FALSE)
 screeplot(res_pca)
 sample_table = eset@phenoData@data
 autoplot(res_pca, data = sample_table, colour = 'treatment', 
-         shape = 'condition', size = 3)
+         shape = 'condition', size = 3, asp = asp_ratio)
 sample_names = paste(sample_table$sample_id,
                      sample_table$treatment,sep = "_")
 rownames(sample_table) = sample_names
 autoplot(res_pca, data = sample_table, 
-         shape = FALSE, label = TRUE, label.size = 3)
+         shape = FALSE, label = TRUE, label.size = 3, asp = asp_ratio)
 ```
 
 Add time to delivery variable.
@@ -135,17 +135,22 @@ Annotate PCA with experimental information.
 
 ```{r}
 sample_table$run_batch = as.factor(sample_table$run_batch)
-autoplot(res_pca, data = sample_table, colour = 'rin', size = 3)
-autoplot(res_pca, data = sample_table, colour = 'run_day', size = 3)
-autoplot(res_pca, data = sample_table, colour = 'run_batch', size = 3)
+autoplot(res_pca, data = sample_table, colour = 'rin', size = 3, 
+         asp = asp_ratio)
+autoplot(res_pca, data = sample_table, colour = 'run_day', size = 3, 
+         asp = asp_ratio)
+autoplot(res_pca, data = sample_table, colour = 'run_batch', size = 3, 
+         asp = asp_ratio)
 autoplot(res_pca, data = sample_table, colour = 'viable_cell_count', 
-         size = 3)
-autoplot(res_pca, data = sample_table, colour = 'viability', size = 3)
+         asp = asp_ratio, size = 3)
+autoplot(res_pca, data = sample_table, colour = 'viability', size = 3,
+         asp = asp_ratio)
 autoplot(res_pca, data = sample_table, colour = 'gestage_delivery', 
-         size = 3)
-autoplot(res_pca, data = sample_table, colour = 'gestage_enroll', size = 3)
+         asp = asp_ratio, size = 3)
+autoplot(res_pca, data = sample_table, colour = 'gestage_enroll', size = 3, 
+         asp = asp_ratio)
 autoplot(res_pca, data = sample_table, colour = 'time_to_delivery', 
-         size = 3)
+         asp = asp_ratio, size = 3)
 ```
 
 # Differential Expression Analyses
@@ -175,10 +180,10 @@ Automatic independent filtering:
 
 ```{r}
 mean_expr = rowMeans(exprs(eset))
-thres_candidates = seq(min(mean_expr),median(mean_expr),1)
+thres_candidates = seq(min(mean_expr),quantile(mean_expr, probs = 0.95),1)
 fit_list = lapply(thres_candidates, function(thres) {
   cat("Automatic independent filtering: thres = ", thres,"\n")
-  eset_thres = ExpressionSet(assayData = exprs(eset)[mean_expr > thres,],
+  eset_thres = ExpressionSet(assayData = exprs(eset)[mean_expr >= thres,],
                              phenoData = phenoData(eset),
                              experimentData = experimentData(eset),
                              annotation = annotation(eset))

@@ -7,7 +7,7 @@ output:
   BiocStyle::html_document2:
     toc_float: true
 params:
-  treatment: "stim"
+  treatment: "unstim"
 ---
 
 ```{r setup, include=FALSE}
@@ -180,6 +180,8 @@ exprs(eset)[1:10, 1:2]
 save(eset,file = "eset.Rdata")
 ```
 
+# Data Exploration
+
 PCA plot of normalized expressions.
 
 ```{r pca_plots}
@@ -224,11 +226,11 @@ Automatic independent filtering:
 
 ```{r paired_samples}
 mean_expr = rowMeans(exprs(eset))
-thres_candidates = seq(min(mean_expr),median(mean_expr),1)
+thres_candidates = seq(min(mean_expr),quantile(mean_expr, probs = 0.95),1)
 fit_list = lapply(thres_candidates, function(thres) {
   cat("Automatic independent filtering: thres = ", thres,"\n")
   # threshold
-  eset_thres = ExpressionSet(assayData = exprs(eset)[mean_expr > thres,],
+  eset_thres = ExpressionSet(assayData = exprs(eset)[mean_expr >= thres,],
                              phenoData = phenoData(eset),
                              experimentData = experimentData(eset),
                              annotation = annotation(eset))
@@ -238,17 +240,16 @@ fit_list = lapply(thres_candidates, function(thres) {
   treat = factor(targets$ptb_case, levels = c("control","case"))
   design = model.matrix(~ pair + treat)
   fit = lmFit(eset, design)
-  fit = eBayes(fit)
+  eBayes(fit)
 })
 num_sig = sapply(fit_list, function(fit) {
   gene_table = topTable(fit, coef = "treatcase", adjust = "BH", 
                         number = nrow(fit))
-  gene_table %>% dplyr::filter(adj.P.Val < 0.1) %>% 
-    add_column(coeff = coeff_name)
+  gene_table %<>% dplyr::filter(adj.P.Val < 0.1)
   nrow(gene_table)
 })
 num_sig
-fit = res_list[[which.max(num_sig)]]
+fit = fit_list[[which.max(num_sig)]]
 ```
 
 The topTable command provides us a way of ranking genes for further evaluation. In the case below, we adjust for multiple testing by FDR.
@@ -278,13 +279,11 @@ map_gene_symbol = function(gene_table) {
   }) %>% unlist
   gene_table = cbind(gene_table,symbol=symbol,stringsAsFactors=FALSE)
   print(head(gene_table))
-  gene_table  
+  gene_table
 }
 gene_table = map_gene_symbol(gene_table)
 print(head(gene_table, n = 10))
 ```
-
-# Export Results
 
 Write to text file.
 
