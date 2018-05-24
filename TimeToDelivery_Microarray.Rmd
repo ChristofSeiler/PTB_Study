@@ -115,6 +115,7 @@ PCA plot of normalized expressions.
 res_pca = prcomp(t(exprs(eset)),scale. = FALSE)
 screeplot(res_pca)
 sample_table = eset@phenoData@data
+asp_ratio = res_pca$sdev[2]^2/res_pca$sdev[1]^2
 autoplot(res_pca, data = sample_table, colour = 'treatment', 
          shape = 'condition', size = 3, asp = asp_ratio)
 sample_names = paste(sample_table$sample_id,
