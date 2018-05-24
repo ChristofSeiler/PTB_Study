@@ -24,7 +24,7 @@ Install necessary packages from bioconductor repository. Run this code only once
 ```{r install_packages, warning=FALSE, message=FALSE}
 pkgs_needed = c("oligo","limma","affycoretools","genefilter",
                 "hta20transcriptcluster.db","ggfortify","magrittr",
-                "statmod","stringr")
+                "statmod","stringr","tibble","dplyr")
 letsinstall = setdiff(pkgs_needed, installed.packages()) 
 if (length(letsinstall) > 0) {
   source("http://bioconductor.org/biocLite.R")
@@ -44,6 +44,8 @@ library("ggfortify")
 library("magrittr")
 library("statmod")
 library("stringr")
+library("tibble")
+library("dplyr")
 ```
 
 # Import Data
@@ -57,7 +59,8 @@ pd = as(sample_table, "AnnotatedDataFrame")
 sample_names = paste(sample_table$sample_id,
                      sample_table$condition,
                      sample_table$treatment,sep = "_")
-rawData = read.celfiles(cel_filenames,phenoData = pd,sampleNames = sample_names)
+rawData = read.celfiles(cel_filenames, phenoData = pd, 
+                        sampleNames = sample_names)
 rawData
 ```
 
@@ -65,13 +68,6 @@ This is the downloaded annotation package:
 
 ```{r}
 pd.hta.2.0
-```
-
-Let's have a first look at the data. These are the samples:
-
-```{r}
-slotNames(rawData)
-sampleNames(rawData)
 ```
 
 # Preprocessing
@@ -100,7 +96,6 @@ eset = ExpressionSet(assayData = exprs(eset)[keep_ids,],
                      phenoData = phenoData(eset),
                      experimentData = experimentData(eset),
                      annotation = annotation(eset))
-#eset = varFilter(eset)
 ```
 
 Save to file.
@@ -112,13 +107,16 @@ exprs(eset)[1:10, 1:2]
 save(eset,file = "eset.Rdata")
 ```
 
+# Data Exploration
+
 PCA plot of normalized expressions.
 
 ```{r}
 res_pca = prcomp(t(exprs(eset)),scale. = FALSE)
 screeplot(res_pca)
 sample_table = eset@phenoData@data
-autoplot(res_pca, data = sample_table, colour = 'treatment', shape = 'condition', size = 3)
+autoplot(res_pca, data = sample_table, colour = 'treatment', 
+         shape = 'condition', size = 3)
 sample_names = paste(sample_table$sample_id,
                      sample_table$treatment,sep = "_")
 rownames(sample_table) = sample_names
@@ -129,7 +127,8 @@ autoplot(res_pca, data = sample_table,
 Add time to delivery variable.
 
 ```{r}
-sample_table$time_to_delivery = sample_table$gestage_delivery - sample_table$gestage_enroll
+sample_table$time_to_delivery = sample_table$gestage_delivery - 
+  sample_table$gestage_enroll
 ```
 
 Annotate PCA with experimental information.
@@ -139,11 +138,14 @@ sample_table$run_batch = as.factor(sample_table$run_batch)
 autoplot(res_pca, data = sample_table, colour = 'rin', size = 3)
 autoplot(res_pca, data = sample_table, colour = 'run_day', size = 3)
 autoplot(res_pca, data = sample_table, colour = 'run_batch', size = 3)
-autoplot(res_pca, data = sample_table, colour = 'viable_cell_count', size = 3)
+autoplot(res_pca, data = sample_table, colour = 'viable_cell_count', 
+         size = 3)
 autoplot(res_pca, data = sample_table, colour = 'viability', size = 3)
-autoplot(res_pca, data = sample_table, colour = 'gestage_delivery', size = 3)
+autoplot(res_pca, data = sample_table, colour = 'gestage_delivery', 
+         size = 3)
 autoplot(res_pca, data = sample_table, colour = 'gestage_enroll', size = 3)
-autoplot(res_pca, data = sample_table, colour = 'time_to_delivery', size = 3)
+autoplot(res_pca, data = sample_table, colour = 'time_to_delivery', 
+         size = 3)
 ```
 
 # Differential Expression Analyses
@@ -152,37 +154,59 @@ Use ``limma`` for linear models to assess difference in expression. Define desig
 
 ```{r}
 sample_table$sample_id = factor(sample_table$sample_id)
-sample_table$treatment = factor(sample_table$treatment,levels = c("Mock","H1N1"))
-design = model.matrix(~ time_to_delivery * treatment + gestage_delivery * treatment,
+sample_table$treatment = factor(sample_table$treatment,
+                                levels = c("Mock","H1N1"))
+design = model.matrix(~ treatment*time_to_delivery +
+                        treatment*gestage_delivery +
+                        time_to_delivery*gestage_delivery,
                       sample_table)
-colnames(design) = str_replace(string = colnames(design),pattern = ":",replacement = "_") %>%
+colnames(design) = str_replace(string = colnames(design),
+                               pattern = ":",replacement = "_") %>%
   str_replace(string = .,pattern = "treatment",replacement = "")
 colnames(design)
 ```
 
-Estimate the correlation between measurements made on the same subject.
+Automatic independent filtering: 
+
+1. Estimate the correlation between measurements made on the same subject. 
+2. Then this inter-subject correlation is input into the linear model fit. 
+3. Then compute moderated t-tests.
+4. The topTable command provides us a way of ranking genes for further evaluation. In the case below, we adjust for multiple testing by FDR. 
 
 ```{r}
-corfit = duplicateCorrelation(eset, design,block = sample_table$sample_id)
+mean_expr = rowMeans(exprs(eset))
+thres_candidates = seq(min(mean_expr),median(mean_expr),1)
+fit_list = lapply(thres_candidates, function(thres) {
+  cat("Automatic independent filtering: thres = ", thres,"\n")
+  eset_thres = ExpressionSet(assayData = exprs(eset)[mean_expr > thres,],
+                             phenoData = phenoData(eset),
+                             experimentData = experimentData(eset),
+                             annotation = annotation(eset))
+  corfit = duplicateCorrelation(eset_thres, design,
+                                block = sample_table$sample_id)
+  fit = lmFit(eset_thres, design, block = sample_table$sample_id,
+              correlation = corfit$consensus)
+  fit = eBayes(fit)
+})
+num_sig = sapply(fit_list, function(fit) {
+  coeffs = colnames(design)[-1]
+  gene_table_combined = lapply(coeffs,function(coeff_name) {
+    gene_table = topTable(fit, coef = coeff_name, adjust="BH", 
+                          number = nrow(fit))
+    gene_table %>% dplyr::filter(adj.P.Val < 0.1) %>% 
+      add_column(coeff = coeff_name)
+  }) %>% bind_rows()
+  nrow(gene_table_combined)
+})
+num_sig
+fit = fit_list[[which.max(num_sig)]]
 ```
 
-Then this inter-subject correlation is input into the linear model fit.
-
-```{r}
-fit = lmFit(eset,design,block = sample_table$sample_id,correlation = corfit$consensus)
-```
-
-Then compute moderated t-tests.
-
-```{r}
-fit = eBayes(fit)
-```
-
-The topTable command provides us a way of ranking genes for further evaluation. In the case below, we adjust for multiple testing by FDR. Save results in a list of tables.
+Save results in a list of tables.
 
 ```{r}
 coeffs = colnames(design)[-1]
-gene_table_list = lapply(coeffs,function(coeff_name) {
+gene_table_list = lapply(coeffs, function(coeff_name) {
   gene_table = topTable(fit, 
                         coef = coeff_name, 
                         adjust="BH", 
@@ -219,15 +243,15 @@ map_gene_symbol = function(gene_table) {
 gene_table_list = lapply(gene_table_list,map_gene_symbol)
 ```
 
-Print genes that are below an FDR of 0.05.
+Print genes that are below an FDR of 0.1.
 
 ```{r}
 for(i in 1:length(gene_table_list)) {
   separator = "-----------"
   cat(separator,names(gene_table_list)[i],separator,"\n")
-  gene_table_subset = subset(gene_table_list[[i]],adj.P.Val < 0.05)
+  gene_table_subset = subset(gene_table_list[[i]],adj.P.Val < 0.1)
   print(gene_table_subset[,c("logFC","adj.P.Val","symbol")])
-  cat(separator,names(gene_table_list)[i],separator,"\n")
+  cat(separator,names(gene_table_list)[i],separator,"\n\n")
 }
 ```
 
@@ -253,11 +277,10 @@ plot_probe = function(probe_name) {
   ggplot(df_probe, aes(x = time_to_delivery,y = probe,color = run_day)) + 
     geom_point() + 
     facet_wrap(~ treatment) +
-    ggtitle(probe_name)
+    ggtitle(probe_name) +
+    scale_x_reverse()
 }
-plot_probe("TC14000062.hg.1")
-plot_probe("ERCCmix2step23")
-plot_probe("TC11002981.hg.1")
+plot_probe("TC19000540.hg.1")
 ```
 
 Difference in slope.
@@ -271,21 +294,13 @@ plot_probe = function(probe_name) {
     geom_point() + 
     geom_smooth(method = "lm", se = FALSE) +
     facet_wrap(~ treatment) +
-    ggtitle(probe_name)
+    ggtitle(probe_name) + 
+    scale_x_reverse()
 }
-plot_probe("TC01001623.hg.1")
-```
-
-Difference in mean between H1N1 and Mock.
-
-```{r}
-plot_probe("TC11001706.hg.1")
-```
-
-Difference in slope between H1N1 and Mock.
-
-```{r}
 plot_probe("TC19000540.hg.1")
+plot_probe("TC09000102.hg.1")
+plot_probe("TC09000954.hg.1")
+plot_probe("TC19000876.hg.1")
 ```
 
 # Session Info {.unnumbered}
