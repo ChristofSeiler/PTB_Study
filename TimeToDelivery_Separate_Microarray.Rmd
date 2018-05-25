@@ -316,10 +316,10 @@ if(length(V(module)) > 0) {
   module_df$xend = c(module_df$xend)
   module_df$yend = c(module_df$yend)
   module_df %<>% mutate(sign_score = factor(sign(module_df$score)))
-  module_df %<>% left_join(mapped, by = c("label" = "symbol"))
+  module_df %<>% left_join(mapped, by = c("vertex.names" = "STRING_id"))
   ggplot(module_df, aes(x = x, y = y, xend = xend, yend = yend)) +
     geom_edges() +
-    geom_nodelabel_repel(aes(label = label), 
+    geom_nodelabel_repel(aes(label = symbol), 
                          box.padding = unit(1, "lines"),
                          alpha = 0.3) +
     geom_nodes(aes(shape = sign_score, color = logFC), size = 4) +
@@ -358,7 +358,7 @@ tb_pways = lapply(all_pathways, function(pway) {
   if(length(gene_desc) > 0) {
     gene_symbol = sapply(strsplit(gene_desc, split = ";"), 
                          function(desc) desc[1])
-    overlap = mean(gene_symbol %in% unique(module_df$label))
+    overlap = mean(gene_symbol %in% unique(module_df$symbol))
   } else {
     overlap = 0
   }
@@ -373,7 +373,7 @@ Only keep pathways that overlap at least 5% of genes.
 
 ```{r filter_pathways}
 tb_pways %<>% 
-  dplyr::filter(overlap > 0.03) %>% 
+  dplyr::filter(overlap > 0.04) %>% 
   dplyr::arrange(desc(overlap))
 tb_pways$name %<>% str_replace(" - Homo sapiens \\(human\\)","")
 tb_pways
