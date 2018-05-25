@@ -162,7 +162,7 @@ fit_list = lapply(thres_candidates, function(thres) {
 num_sig = sapply(fit_list, function(fit) {
   coeffs = colnames(design)[-1]
   gene_table_combined = lapply(coeffs,function(coeff_name) {
-    gene_table = topTable(fit, coef = coeff_name, adjust="BH", 
+    gene_table = topTable(fit, coef = coeff_name, adjust = "BH", 
                           number = nrow(fit))
     gene_table %>% dplyr::filter(adj.P.Val < 0.1) %>% 
       add_column(coeff = coeff_name)
@@ -180,7 +180,7 @@ coeffs = colnames(design)[-1]
 gene_table_list = lapply(coeffs, function(coeff_name) {
   gene_table = topTable(fit, 
                         coef = coeff_name, 
-                        adjust="BH", 
+                        adjust = "BH", 
                         number = nrow(fit))
   hist(gene_table$P.Value,breaks = 100,main = coeff_name)
   gene_table
@@ -305,6 +305,8 @@ module = module_list[[model_sel]]
 module
 ```
 
+## Visualize Network
+
 Differential expression is coloured in red (upregulated), green (downregulated), and white (neutral). Shapes represent scores: rectangles are negative and circles are positive.
 
 ```{r plot_network, fig.width=12, fig.height=12}
@@ -316,13 +318,15 @@ if(length(V(module)) > 0) {
   module_df$xend = c(module_df$xend)
   module_df$yend = c(module_df$yend)
   module_df %<>% mutate(sign_score = factor(sign(module_df$score)))
-  module_df %<>% left_join(mapped, by = c("vertex.names" = "STRING_id"))
+  ids = sapply(module_df$vertex.names, function(id) which(id == mapped$STRING_id)[1])
+  module_df %<>% mutate(t_statistic = mapped$t[ids])
+  module_df %<>% mutate(symbol = mapped$symbol[ids])
   ggplot(module_df, aes(x = x, y = y, xend = xend, yend = yend)) +
     geom_edges() +
     geom_nodelabel_repel(aes(label = symbol), 
                          box.padding = unit(1, "lines"),
                          alpha = 0.3) +
-    geom_nodes(aes(shape = sign_score, color = logFC), size = 4) +
+    geom_nodes(aes(shape = sign_score, color = t_statistic), size = 4) +
     ggtitle(paste0("Time to Delivery (FDR = ",fdr_vec[model_sel],")")) +
     scale_color_gradient2(midpoint = 0, low = "blue", mid = "white",
                           high = "red", space = "Lab" ) +
@@ -330,6 +334,37 @@ if(length(V(module)) > 0) {
 } else {
   message("no signficant subgraph found")
 }
+```
+
+## Single Genes Expression
+
+Scatter plot for some genes in the network.
+
+```{r scatter_plot}
+plot_node = function(node_id) {
+  probe_id = e2s[which(e2s$symbol == module_df[node_id,"symbol"]), "probe_id"]
+  tb_expr = tibble(
+    expr = exprs(eset)[which(rownames(exprs(eset)) == probe_id),],
+    time_to_delivery = pData(eset)$time_to_delivery,
+    gestage_delivery = pData(eset)$gestage_delivery
+  )
+  fit_expr = lm(expr ~ gestage_delivery, tb_expr)
+  fit_time = lm(time_to_delivery ~ gestage_delivery, tb_expr)
+  tb_expr %<>% mutate(res_expr = residuals(fit_expr))
+  tb_expr %<>% mutate(res_time_to_delivery = residuals(fit_time))
+  ggplot(tb_expr, aes(res_time_to_delivery, res_expr)) +
+    geom_smooth(method = lm, se = FALSE) +
+    geom_point() +
+    scale_x_reverse() +
+    ggtitle(paste0(module_df$symbol[node_id],
+                  " (moderated t-statistic = ",
+                  round(module_df$t_statistic[node_id],digits = 2),
+                  ")")) +
+    xlab("residual of lm(time_to_delivery ~ gestage_delivery)") +
+    ylab("residual of lm(expr ~ gestage_delivery)")
+}
+plot_node(which.min(module_df$t))
+plot_node(which.max(module_df$t))
 ```
 
 # Pathways Analysis
@@ -383,7 +418,7 @@ Visualize pathway overlap.
 
 ```{r plot_pathways}
 tb_pways$name %<>% factor(levels = rev(tb_pways$name))
-ggplot(tb_pways,aes(x = 100*overlap,y = name, color = name)) + 
+ggplot(tb_pways, aes(x = 100*overlap,y = name, color = name)) + 
   geom_point(size = 2) +
   theme(legend.position="none") +
   xlab("Overlap in %") +
