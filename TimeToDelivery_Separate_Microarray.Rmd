@@ -54,7 +54,7 @@ library("dplyr")
 
 Then load Affymetrix CEL files. At this stage, Bioconductor will automatically download the necessary annotation packages and install them for us. Add time to delivery variable.
 
-```{r}
+```{r import_data}
 sample_table = read.csv("sample_table.csv")
 params$treatment
 sample_table %<>% filter(treatment == params$treatment)
@@ -74,7 +74,7 @@ rawData
 
 Background subtraction, normalization and summarization using median-polish.
 
-```{r}
+```{r rma}
 eset = rma(rawData)
 ```
 
@@ -102,7 +102,7 @@ eset = ExpressionSet(assayData = exprs(eset)[keep_ids,],
 
 PCA plot of normalized expressions.
 
-```{r}
+```{r pca_plot}
 res_pca = prcomp(t(exprs(eset)),scale. = FALSE)
 screeplot(res_pca)
 sample_table = eset@phenoData@data
@@ -120,7 +120,7 @@ autoplot(res_pca, data = sample_table,
 
 Use ``limma`` for linear models to assess difference in expression. Define design matrix.
 
-```{r}
+```{r design_matrix}
 design = model.matrix(~ time_to_delivery + gestage_delivery, sample_table)
 colnames(design) = str_replace(string = colnames(design),
                                pattern = ":",replacement = "_") %>%
@@ -135,7 +135,7 @@ Automatic independent filtering:
 3. Then compute moderated t-tests.
 4. The topTable command provides us a way of ranking genes for further evaluation. In the case below, we adjust for multiple testing by FDR. 
 
-```{r paired_samples}
+```{r automatic_independent_filtering}
 mean_expr = rowMeans(exprs(eset))
 thres_candidates = seq(min(mean_expr),quantile(mean_expr, probs = 0.95),1)
 fit_list = lapply(thres_candidates, function(thres) {
@@ -165,7 +165,7 @@ fit = fit_list[[which.max(num_sig)]]
 
 Save results in a list of tables.
 
-```{r}
+```{r top_table}
 coeffs = colnames(design)[-1]
 gene_table_list = lapply(coeffs, function(coeff_name) {
   gene_table = topTable(fit, 
@@ -180,7 +180,7 @@ names(gene_table_list) = coeffs
 
 Volcano plots for quality control.
 
-```{r}
+```{r volcanoplot}
 for(coeff_name in coeffs) {
   cat(coeff_name,"\n")
   volcanoplot(fit,coef = coeff_name,highlight = 10)
@@ -189,7 +189,7 @@ for(coeff_name in coeffs) {
 
 Map between manufacturer identifiers and gene symbols.
 
-```{r}
+```{r map_probes_to_symbols}
 e2s = toTable(hta20transcriptclusterSYMBOL)
 map_gene_symbol = function(gene_table) {
   prob_ids = rownames(gene_table)
@@ -204,9 +204,9 @@ map_gene_symbol = function(gene_table) {
 gene_table_list = lapply(gene_table_list,map_gene_symbol)
 ```
 
-Print genes that are below an FDR of 0.1.
+Print genes that are below an FDR of $0.1$.
 
-```{r}
+```{r print_genes}
 for(i in 1:length(gene_table_list)) {
   separator = "-----------"
   cat(separator,names(gene_table_list)[i],separator,"\n")
@@ -218,12 +218,177 @@ for(i in 1:length(gene_table_list)) {
 
 Write to text file.
 
-```{r}
+```{r write_genes}
 for(i in 1:length(gene_table_list)) {
   file_name_results = paste0(names(gene_table_list)[i],"_results.csv")
   cat("writting:",file_name_results,"\n")
   write.csv(gene_table_list[[i]],file = file_name_results)
 }
+```
+
+# Network Analysis
+
+```{r}
+library("STRINGdb")
+library("BioNet")
+library("DLBCL")
+library("org.Hs.eg.db")
+library("KEGGREST")
+library("igraph")
+library("visNetwork")
+library("intergraph")
+```
+
+Network analysis on time to event table.
+
+```{r gene_table_for_network_analysis}
+gene_table = gene_table_list[[1]]
+```
+
+## Download Gene Network
+
+Download proteins for human species (code is 9606). Consider interaciton that are $0.9$ confidence. From the STRING website: "In STRING, each protein-protein interaction is annotated with one or more 'scores'. Importantly, these scores do not indicate the strength or the specificity of the interaction. Instead, they are indicators of confidence, i.e. how likely STRING judges an interaction to be true, given the available evidence. All scores rank from $0$ to $1$, with $1$ being the highest possible confidence. A score of 0.5 would indicate that roughly every second interaction might be erroneous (i.e., a false positive)."
+
+```{r db_create_string}
+string_db = STRINGdb$new(version="10", species = 9606, 
+                         score_threshold = 900, input_directory = "")
+```
+
+Check how many proteins are in the database.
+
+```{r db_get_proteins}
+string_proteins = string_db$get_proteins()
+dim(string_proteins)
+```
+
+Map gene names to identifiers used in the database.
+
+```{r db_map}
+mapped = string_db$map(gene_table, "symbol", removeUnmappedRows = TRUE)
+interactions = string_db$get_interactions(mapped$STRING_id)
+interactions = data.frame(from = interactions$from,
+                          to = interactions$to,
+                          combined_score = interactions$combined_score)
+dim(interactions)
+head(interactions)
+```
+
+## Find Subgraph
+
+Fit a Beta-Uniform model.
+
+```{r fit_bum_model, fig.width=12}
+pval = mapped$P.Value
+names(pval) = mapped$STRING_id
+fb = fitBumModel(pval)
+fb
+```
+
+Set the `fdr` parameter which can be interpreted as the FDR of the subgraph. Smaller values will produce a smaller maximum subgraph. You should try a few values (e.g. $0.05$, $0.01$, $0.001$) to obtain a reasonable small subgraph that permits biological interpretation. First, we convert the interaction table into an igraph object and make the nodes names human readible. Then we search for the optimal subgraph.
+
+```{r run_fast_heinz}
+fdr_vec = seq(0.1,0.01,-0.01)
+network = graph_from_data_frame(interactions)
+module_list = mclapply(fdr_vec, function(fdr) {
+  scores = scoreNodes(network, fb, fdr = fdr)
+  module = runFastHeinz(network, scores)
+  module
+}, mc.cores = 4)
+module_lengths = sapply(module_list,function(module) length(V(module)))
+tb_module = tibble(id = 1:length(module_lengths), 
+                   num_nodes = module_lengths, 
+                   fdr = fdr_vec)
+ggplot(tb_module, aes(fdr,num_nodes)) +
+  geom_line() +
+  geom_point(size = 2)
+model_sel = tb_module %>% filter(fdr == 0.05) %>% .$id
+module = module_list[[model_sel]]
+module
+```
+
+Differential expression is coloured in red (upregulated), green (downregulated), and white (neutral). Shapes represent scores: rectangles are negative and circles are positive.
+
+```{r plot_network, fig.width=12, fig.height=12}
+if(length(V(module)) > 0) {
+  set.seed(0xdada)
+  module_df = ggnetwork(module, layout = "kamadakawai")
+  module_df$x = c(module_df$x)
+  module_df$y = c(module_df$y)
+  module_df$xend = c(module_df$xend)
+  module_df$yend = c(module_df$yend)
+  module_df %<>% mutate(sign_score = factor(sign(module_df$score)))
+  module_df %<>% left_join(mapped, by = c("label" = "symbol"))
+  ggplot(module_df, aes(x = x, y = y, xend = xend, yend = yend)) +
+    geom_edges() +
+    geom_nodelabel_repel(aes(label = label), 
+                         box.padding = unit(1, "lines"),
+                         alpha = 0.3) +
+    geom_nodes(aes(shape = sign_score, color = logFC), size = 4) +
+    ggtitle(paste0("Time to Delivery (FDR = ",fdr_vec[model_sel],")")) +
+    scale_color_gradient2(midpoint = 0, low = "blue", mid = "white",
+                          high = "red", space = "Lab" ) +
+    theme_blank()
+} else {
+  message("no signficant subgraph found")
+}
+```
+
+# Pathways Analysis
+
+Calculate number of genes that our network on known pathways have in common.
+
+```{r calculate_pathway_overlap}
+# get human pathways form kegg database
+pathways = keggList("pathway", "hsa")
+human_pathways = sub("path:", "", names(pathways))
+# kegg server only allow 10 request at the time
+n_request = ceiling(length(human_pathways)/10)
+chunk = function(x, n) split(x, sort(rank(x) %% n))
+chunks_pathways = chunk(1:length(human_pathways),n_request)
+# download from kegg server
+list_chunk_pathways = lapply(chunks_pathways,function(one_chunk_pathways) {
+  cat("download chunk:",one_chunk_pathways,"\n")
+  pathway_ids = human_pathways[one_chunk_pathways]
+  setNames(keggGet(pathway_ids), pathway_ids)
+  })
+# flatten list of lists
+all_pathways = unlist(list_chunk_pathways, recursive=FALSE)
+# check for all human pathways
+tb_pways = lapply(all_pathways, function(pway) {
+  gene_desc = pway$GENE[c(F,T)]
+  if(length(gene_desc) > 0) {
+    gene_symbol = sapply(strsplit(gene_desc, split = ";"), 
+                         function(desc) desc[1])
+    overlap = mean(gene_symbol %in% unique(module_df$label))
+  } else {
+    overlap = 0
+  }
+  tibble(
+    name = pway$NAME,
+    overlap = overlap
+    )
+}) %>% bind_rows
+```
+
+Only keep pathways that overlap at least 5% of genes.
+
+```{r filter_pathways}
+tb_pways %<>% 
+  dplyr::filter(overlap > 0.03) %>% 
+  dplyr::arrange(desc(overlap))
+tb_pways$name %<>% str_replace(" - Homo sapiens \\(human\\)","")
+tb_pways
+```
+
+Visualize pathway overlap.
+
+```{r plot_pathways}
+tb_pways$name %<>% factor(levels = rev(tb_pways$name))
+ggplot(tb_pways,aes(x = 100*overlap,y = name, color = name)) + 
+  geom_point(size = 2) +
+  theme(legend.position="none") +
+  xlab("Overlap in %") +
+  ylab("Pathway Name")
 ```
 
 # Session Info {.unnumbered}
