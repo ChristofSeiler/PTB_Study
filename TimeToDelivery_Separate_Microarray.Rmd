@@ -1,5 +1,5 @@
 ---
-title: "Case-Control with Gestational Age Matching"
+title: "Separate Mock/H1N1 Time to Delivery Analysis on Microarray Data"
 author:
   name: Christof Seiler
   affiliation: Department of Statistics, Stanford University
@@ -7,7 +7,7 @@ output:
   BiocStyle::html_document2:
     toc_float: true
 params:
-  treatment: "Mock"
+  treatment: "H1N1"
 ---
 
 ```{r setup, include=FALSE}
@@ -56,7 +56,7 @@ Then load Affymetrix CEL files. At this stage, Bioconductor will automatically d
 
 ```{r}
 sample_table = read.csv("sample_table.csv")
-cel_filenames = paste0(as.character(sample_table$array_name),".CEL")
+params$treatment
 sample_table %<>% filter(treatment == params$treatment)
 sample_table$time_to_delivery = sample_table$gestage_delivery - 
   sample_table$gestage_enroll
@@ -64,6 +64,7 @@ sample_names = paste(sample_table$sample_id,
                      sample_table$condition,
                      sample_table$treatment,sep = "_")
 pd = as(sample_table, "AnnotatedDataFrame")
+cel_filenames = paste0(as.character(sample_table$array_name),".CEL")
 rawData = read.celfiles(cel_filenames, phenoData = pd, 
                         sampleNames = sample_names)
 rawData
@@ -95,15 +96,6 @@ eset = ExpressionSet(assayData = exprs(eset)[keep_ids,],
                      phenoData = phenoData(eset),
                      experimentData = experimentData(eset),
                      annotation = annotation(eset))
-```
-
-Save to file.
-
-```{r save_eset}
-class(eset)
-show(eset)
-exprs(eset)[1:10, 1:2]
-save(eset,file = "eset.Rdata")
 ```
 
 # Data Exploration
