@@ -26,7 +26,9 @@ Install necessary packages from bioconductor repository. Run this code only once
 ```{r install_packages, warning=FALSE, message=FALSE}
 pkgs_needed = c("oligo","limma","affycoretools","genefilter",
                 "hta20transcriptcluster.db","ggfortify","magrittr",
-                "statmod","stringr","tibble","dplyr")
+                "statmod","stringr","tibble","dplyr",
+                "STRINGdb","BioNet","DLBCL","org.Hs.eg.db","KEGGREST",
+                "igraph","intergraph","ggnetwork")
 letsinstall = setdiff(pkgs_needed, installed.packages()) 
 if (length(letsinstall) > 0) {
   source("http://bioconductor.org/biocLite.R")
@@ -48,6 +50,14 @@ library("statmod")
 library("stringr")
 library("tibble")
 library("dplyr")
+library("STRINGdb")
+library("BioNet")
+library("DLBCL")
+library("org.Hs.eg.db")
+library("KEGGREST")
+library("igraph")
+library("intergraph")
+library("ggnetwork")
 ```
 
 # Import Data
@@ -227,17 +237,6 @@ for(i in 1:length(gene_table_list)) {
 ```
 
 # Network Analysis
-
-```{r}
-library("STRINGdb")
-library("BioNet")
-library("DLBCL")
-library("org.Hs.eg.db")
-library("KEGGREST")
-library("igraph")
-library("visNetwork")
-library("intergraph")
-```
 
 Network analysis on time to event table.
 
