@@ -28,7 +28,7 @@ pkgs_needed = c("oligo","limma","affycoretools","genefilter",
                 "hta20transcriptcluster.db","ggfortify","magrittr",
                 "statmod","stringr","tibble","dplyr",
                 "STRINGdb","BioNet","DLBCL","org.Hs.eg.db","KEGGREST",
-                "igraph","intergraph","ggnetwork")
+                "igraph","intergraph","ggnetwork","ggthemes")
 letsinstall = setdiff(pkgs_needed, installed.packages()) 
 if (length(letsinstall) > 0) {
   source("http://bioconductor.org/biocLite.R")
@@ -58,6 +58,12 @@ library("KEGGREST")
 library("igraph")
 library("intergraph")
 library("ggnetwork")
+library("ggthemes")
+library("sna")
+library("statnet.common")
+library("network")
+theme_set(theme_few())
+scale_colour_discrete = function(...) scale_colour_few()
 ```
 
 # Import Data
@@ -276,7 +282,7 @@ head(interactions)
 
 Fit a Beta-Uniform model.
 
-```{r fit_bum_model, fig.width=12}
+```{r fit_bum_model, fig.wide=TRUE}
 pval = mapped$P.Value
 names(pval) = mapped$STRING_id
 fb = fitBumModel(pval)
@@ -309,8 +315,9 @@ module
 
 Differential expression is coloured in red (upregulated), green (downregulated), and white (neutral). Shapes represent scores: rectangles are negative and circles are positive.
 
-```{r plot_network, fig.width=12, fig.height=12}
-if(length(V(module)) > 0) {
+```{r plot_network, fig.wide=TRUE}
+plot_network = function(color_name) {
+  if(length(V(module)) == 0) stop("no signficant subgraph found")
   set.seed(0xdada)
   module_df = ggnetwork(module, layout = "kamadakawai")
   module_df$x = c(module_df$x)
@@ -320,28 +327,32 @@ if(length(V(module)) > 0) {
   module_df %<>% mutate(sign_score = factor(sign(module_df$score)))
   ids = sapply(module_df$vertex.names, function(id) which(id == mapped$STRING_id)[1])
   module_df %<>% mutate(t_statistic = mapped$t[ids])
+  module_df %<>% mutate(log_fc = mapped$logFC[ids])
   module_df %<>% mutate(symbol = mapped$symbol[ids])
   ggplot(module_df, aes(x = x, y = y, xend = xend, yend = yend)) +
     geom_edges() +
     geom_nodelabel_repel(aes(label = symbol), 
                          box.padding = unit(1, "lines"),
                          alpha = 0.3) +
-    geom_nodes(aes(shape = sign_score, color = t_statistic), size = 4) +
+    geom_nodes(aes_string(shape = "sign_score", color = color_name), size = 6) +
     ggtitle(paste0("Time to Delivery (FDR = ",fdr_vec[model_sel],")")) +
     scale_color_gradient2(midpoint = 0, low = "blue", mid = "white",
                           high = "red", space = "Lab" ) +
     theme_blank()
-} else {
-  message("no signficant subgraph found")
 }
+plot_network(color_name= "t_statistic")
+ggsave(filename = "network_t_statistic.pdf", width = 10, height = 6)
+plot_network("log_fc")
+ggsave(filename = "network_log_fc.pdf", width = 10, height = 6)
 ```
 
 ## Single Genes Expression
 
 Scatter plot for some genes in the network.
 
-```{r scatter_plot}
+```{r scatter_plot, fig.width=4, fig.height=4}
 plot_node = function(node_id) {
+  if(length(node_id) == 0) stop("not a valid node")
   probe_id = e2s[which(e2s$symbol == module_df[node_id,"symbol"]), "probe_id"]
   tb_expr = tibble(
     expr = exprs(eset)[which(rownames(exprs(eset)) == probe_id),],
@@ -353,15 +364,15 @@ plot_node = function(node_id) {
   tb_expr %<>% mutate(res_expr = residuals(fit_expr))
   tb_expr %<>% mutate(res_time_to_delivery = residuals(fit_time))
   ggplot(tb_expr, aes(res_time_to_delivery, res_expr)) +
-    geom_smooth(method = lm, se = FALSE) +
-    geom_point() +
+    geom_smooth(method = lm, se = FALSE, color = "grey", size = 2) +
+    geom_point(size = 2) +
     scale_x_reverse() +
     ggtitle(paste0(module_df$symbol[node_id],
-                  " (moderated t-statistic = ",
+                  " (t-statistic = ",
                   round(module_df$t_statistic[node_id],digits = 2),
                   ")")) +
-    xlab("residual of lm(time_to_delivery ~ gestage_delivery)") +
-    ylab("residual of lm(expr ~ gestage_delivery)")
+    xlab("resid(lm(time_to_delivery ~ gestage_delivery)") +
+    ylab("resid(lm(expr ~ gestage_delivery))")
 }
 plot_node(which.min(module_df$t))
 plot_node(which.max(module_df$t))
@@ -418,7 +429,7 @@ Visualize pathway overlap.
 
 ```{r plot_pathways}
 tb_pways$name %<>% factor(levels = rev(tb_pways$name))
-ggplot(tb_pways, aes(x = 100*overlap,y = name, color = name)) + 
+ggplot(tb_pways, aes(x = 100*overlap,y = name)) + 
   geom_point(size = 2) +
   theme(legend.position="none") +
   xlab("Overlap in %") +

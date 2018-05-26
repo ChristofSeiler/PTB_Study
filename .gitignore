@@ -8,3 +8,5 @@
 *.CEL
 *.png
 sample_table_matched.csv
+network_t_statistic.pdf
+network_log_fc.pdf
