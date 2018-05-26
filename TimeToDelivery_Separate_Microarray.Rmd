@@ -319,7 +319,8 @@ Differential expression is coloured in red (upregulated), green (downregulated),
 
 ```{r plot_network, fig.wide=TRUE}
 plot_network = function(color_name) {
-  if(length(V(module)) == 0) stop("no signficant subgraph found")
+  if(length(V(module)) < 2) 
+    return("need two or more nodes")
   set.seed(0xdada)
   module_df = ggnetwork(module, layout = "kamadakawai")
   module_df$x = c(module_df$x)
@@ -344,7 +345,7 @@ plot_network = function(color_name) {
                           high = "red", space = "Lab" ) +
     theme_blank()
 }
-plot_network(color_name= "t_statistic")
+plot_network("t_statistic")
 ggsave(filename = "network_t_statistic.pdf", width = 10, height = 6)
 plot_network("log_fc")
 ggsave(filename = "network_log_fc.pdf", width = 10, height = 6)
@@ -384,7 +385,8 @@ Calculate number of genes that our network on known pathways have in common. Onl
 
 ```{r calculate_pathway_overlap}
 plot_pathway = function(module) {
-  if(length(V(module)) == 0) stop("no nodes in graph")
+  if(length(V(module)) < 2)
+    return("need two or more nodes")
   
   # get human pathways form kegg database
   pathways = keggList("pathway", "hsa")
