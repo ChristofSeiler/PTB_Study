@@ -325,7 +325,8 @@ plot_network = function(color_name) {
   module_df$xend = c(module_df$xend)
   module_df$yend = c(module_df$yend)
   module_df %<>% mutate(sign_score = factor(sign(module_df$score)))
-  ids = sapply(module_df$vertex.names, function(id) which(id == mapped$STRING_id)[1])
+  ids = sapply(module_df$vertex.names, 
+               function(id) which(id == mapped$STRING_id)[1])
   module_df %<>% mutate(t_statistic = mapped$t[ids])
   module_df %<>% mutate(log_fc = mapped$logFC[ids])
   module_df %<>% mutate(symbol = mapped$symbol[ids])
@@ -334,7 +335,8 @@ plot_network = function(color_name) {
     geom_nodelabel_repel(aes(label = symbol), 
                          box.padding = unit(1, "lines"),
                          alpha = 0.3) +
-    geom_nodes(aes_string(shape = "sign_score", color = color_name), size = 6) +
+    geom_nodes(aes_string(shape = "sign_score", color = color_name), 
+               size = 6) +
     ggtitle(paste0("Time to Delivery (FDR = ",fdr_vec[model_sel],")")) +
     scale_color_gradient2(midpoint = 0, low = "blue", mid = "white",
                           high = "red", space = "Lab" ) +
@@ -376,60 +378,61 @@ plot_node("SNORD18A")
 
 # Pathways Analysis
 
-Calculate number of genes that our network on known pathways have in common.
+Calculate number of genes that our network on known pathways have in common. Only keep pathways that overlap at least 5% of genes. Visualize pathway overlap.
 
 ```{r calculate_pathway_overlap}
-# get human pathways form kegg database
-pathways = keggList("pathway", "hsa")
-human_pathways = sub("path:", "", names(pathways))
-# kegg server only allow 10 request at the time
-n_request = ceiling(length(human_pathways)/10)
-chunk = function(x, n) split(x, sort(rank(x) %% n))
-chunks_pathways = chunk(1:length(human_pathways),n_request)
-# download from kegg server
-list_chunk_pathways = lapply(chunks_pathways,function(one_chunk_pathways) {
-  cat("download chunk:",one_chunk_pathways,"\n")
-  pathway_ids = human_pathways[one_chunk_pathways]
-  setNames(keggGet(pathway_ids), pathway_ids)
-  })
-# flatten list of lists
-all_pathways = unlist(list_chunk_pathways, recursive=FALSE)
-# check for all human pathways
-tb_pways = lapply(all_pathways, function(pway) {
-  gene_desc = pway$GENE[c(F,T)]
-  if(length(gene_desc) > 0) {
-    gene_symbol = sapply(strsplit(gene_desc, split = ";"), 
-                         function(desc) desc[1])
-    overlap = mean(gene_symbol %in% unique(module_df$symbol))
-  } else {
-    overlap = 0
-  }
-  tibble(
-    name = pway$NAME,
-    overlap = overlap
-    )
-}) %>% bind_rows
-```
-
-Only keep pathways that overlap at least 5% of genes.
-
-```{r filter_pathways}
-tb_pways %<>% 
-  dplyr::filter(overlap > 0.04) %>% 
-  dplyr::arrange(desc(overlap))
-tb_pways$name %<>% str_replace(" - Homo sapiens \\(human\\)","")
-tb_pways
-```
-
-Visualize pathway overlap.
-
-```{r plot_pathways}
-tb_pways$name %<>% factor(levels = rev(tb_pways$name))
-ggplot(tb_pways, aes(x = 100*overlap,y = name)) + 
-  geom_point(size = 2) +
-  theme(legend.position="none") +
-  xlab("Overlap in %") +
-  ylab("Pathway Name")
+plot_pathway = function(module) {
+  if(length(V(module)) == 0) stop("no nodes in graph")
+  
+  # get human pathways form kegg database
+  pathways = keggList("pathway", "hsa")
+  human_pathways = sub("path:", "", names(pathways))
+  
+  # kegg server only allow 10 request at the time
+  n_request = ceiling(length(human_pathways)/10)
+  chunk = function(x, n) split(x, sort(rank(x) %% n))
+  chunks_pathways = chunk(1:length(human_pathways),n_request)
+  
+  # download from kegg server
+  list_chunk_pathways = lapply(chunks_pathways,function(one_chunk_pathways) {
+    cat("download chunk:",one_chunk_pathways,"\n")
+    pathway_ids = human_pathways[one_chunk_pathways]
+    setNames(keggGet(pathway_ids), pathway_ids)
+    })
+  
+  # flatten list of lists
+  all_pathways = unlist(list_chunk_pathways, recursive=FALSE)
+  
+  # check for all human pathways
+  module_df = ggnetwork(module)
+  ids = sapply(module_df$vertex.names,
+               function(id) which(id == mapped$STRING_id)[1])
+  tb_pways = lapply(all_pathways, function(pway) {
+    gene_desc = pway$GENE[c(F,T)]
+    if(length(gene_desc) > 0) {
+      gene_symbol = sapply(strsplit(gene_desc, split = ";"), 
+                           function(desc) desc[1])
+      overlap = mean(gene_symbol %in% unique(mapped$symbol[ids]))
+    } else {
+      overlap = 0
+    }
+    tibble(
+      name = pway$NAME,
+      overlap = overlap
+      )
+  }) %>% bind_rows
+  tb_pways %<>% 
+    dplyr::filter(overlap > 0.04) %>% 
+    dplyr::arrange(desc(overlap))
+  tb_pways$name %<>% str_replace(" - Homo sapiens \\(human\\)","")
+  tb_pways$name %<>% factor(levels = rev(tb_pways$name))
+  ggplot(tb_pways, aes(x = 100*overlap,y = name)) + 
+    geom_point(size = 2) +
+    theme(legend.position="none") +
+    xlab("Overlap in %") +
+    ylab("Pathway Name")
+}
+plot_pathway(module)
 ```
 
 # Session Info {.unnumbered}
