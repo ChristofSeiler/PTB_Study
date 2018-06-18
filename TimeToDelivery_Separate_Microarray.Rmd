@@ -26,7 +26,7 @@ knitr::opts_chunk$set(echo = TRUE)
 Install necessary packages from bioconductor repository. Run this code only once to install packages.
 
 ```{r install_packages, warning=FALSE, message=FALSE}
-pkgs_needed = c("oligo","limma","affycoretools","genefilter",
+pkgs_needed = c("oligo","limma","affycoretools","genefilter","glmnet",
                 "hta20transcriptcluster.db","ggfortify","magrittr",
                 "statmod","stringr","tibble","dplyr",
                 "STRINGdb","BioNet","DLBCL","org.Hs.eg.db","KEGGREST",
@@ -45,6 +45,7 @@ library("oligo")
 library("limma")
 library("affycoretools")
 library("genefilter")
+library("glmnet")
 library("hta20transcriptcluster.db")
 library("ggfortify")
 library("magrittr")
@@ -116,6 +117,25 @@ eset = ExpressionSet(assayData = exprs(eset)[keep_ids,],
                      annotation = annotation(eset))
 ```
 
+# Time to Delivery Prediction
+
+Use Lasso to predict time to delivery from gene expressions.
+
+```{r lasso_prediction}
+#set.seed(0xdada)
+exprs_table = t(exprs(eset))
+sample_table = eset@phenoData@data
+glmnet_cv = cv.glmnet(x = exprs_table, 
+                      y = sample_table$time_to_delivery)
+plot(glmnet_cv)
+glmnet_fit = glmnet(x = exprs_table,
+                    y = sample_table$time_to_delivery, 
+                    lambda = glmnet_cv$lambda.min)
+nonzero = which(coef(glmnet_fit) > 0)
+prob_ids_nonzero = rownames(coef(glmnet_fit))[nonzero]
+e2s[which(e2s$probe_id %in% prob_ids_nonzero),]
+```
+
 # Data Exploration
 
 PCA plot of normalized expressions.
@@ -146,12 +166,7 @@ colnames(design) = str_replace(string = colnames(design),
 colnames(design)
 ```
 
-Automatic independent filtering: 
-
-1. Estimate the correlation between measurements made on the same subject. 
-2. Then this inter-subject correlation is input into the linear model fit. 
-3. Then compute moderated t-tests.
-4. The topTable command provides us a way of ranking genes for further evaluation. In the case below, we adjust for multiple testing by FDR. 
+Choose mean expression threshold that maximizes number of differentially expressed genes. This approach is called automatic independent filtering and used in DESeq2.
 
 ```{r automatic_independent_filtering}
 mean_expr = rowMeans(exprs(eset))
