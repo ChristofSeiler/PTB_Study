@@ -117,25 +117,6 @@ eset = ExpressionSet(assayData = exprs(eset)[keep_ids,],
                      annotation = annotation(eset))
 ```
 
-# Time to Delivery Prediction
-
-Use Lasso to predict time to delivery from gene expressions.
-
-```{r lasso_prediction}
-#set.seed(0xdada)
-exprs_table = t(exprs(eset))
-sample_table = eset@phenoData@data
-glmnet_cv = cv.glmnet(x = exprs_table, 
-                      y = sample_table$time_to_delivery)
-plot(glmnet_cv)
-glmnet_fit = glmnet(x = exprs_table,
-                    y = sample_table$time_to_delivery, 
-                    lambda = glmnet_cv$lambda.min)
-nonzero = which(coef(glmnet_fit) > 0)
-prob_ids_nonzero = rownames(coef(glmnet_fit))[nonzero]
-e2s[which(e2s$probe_id %in% prob_ids_nonzero),]
-```
-
 # Data Exploration
 
 PCA plot of normalized expressions.
@@ -453,6 +434,25 @@ plot_pathway = function(module) {
     ylab("Pathway Name")
 }
 plot_pathway(module)
+```
+
+# Time to Delivery Prediction
+
+Use Lasso to predict time to delivery from gene expressions.
+
+```{r lasso_prediction}
+set.seed(0xdada)
+exprs_table = t(exprs(eset))
+sample_table = eset@phenoData@data
+glmnet_cv = cv.glmnet(x = exprs_table, 
+                      y = sample_table$time_to_delivery)
+plot(glmnet_cv)
+glmnet_fit = glmnet(x = exprs_table,
+                    y = sample_table$time_to_delivery, 
+                    lambda = glmnet_cv$lambda.min)
+nonzero = which(coef(glmnet_fit) > 0)
+prob_ids_nonzero = rownames(coef(glmnet_fit))[nonzero]
+e2s[which(e2s$probe_id %in% prob_ids_nonzero),]
 ```
 
 # Session Info {.unnumbered}
