@@ -128,8 +128,8 @@ autoplot(res_pca, data = sample_table,
 Add time to delivery variable.
 
 ```{r}
-sample_table$time_to_delivery = sample_table$gestage_delivery - 
-  sample_table$gestage_enroll
+sample_table$time_to_delivery = sample_table$gestage_enroll - 
+  sample_table$gestage_delivery
 ```
 
 Annotate PCA with experimental information.
@@ -283,8 +283,7 @@ plot_probe = function(probe_name) {
   ggplot(df_probe, aes(x = time_to_delivery,y = probe,color = run_day)) + 
     geom_point() + 
     facet_wrap(~ treatment) +
-    ggtitle(probe_name) +
-    scale_x_reverse()
+    ggtitle(probe_name)
 }
 plot_probe("TC19000540.hg.1")
 ```
@@ -300,8 +299,7 @@ plot_probe = function(probe_name) {
     geom_point() + 
     geom_smooth(method = "lm", se = FALSE) +
     facet_wrap(~ treatment) +
-    ggtitle(probe_name) + 
-    scale_x_reverse()
+    ggtitle(probe_name)
 }
 plot_probe("TC19000540.hg.1")
 plot_probe("TC09000102.hg.1")

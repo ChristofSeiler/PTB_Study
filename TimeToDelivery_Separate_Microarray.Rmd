@@ -77,8 +77,8 @@ Then load Affymetrix CEL files. At this stage, Bioconductor will automatically d
 sample_table = read.csv("sample_table.csv")
 params$treatment
 sample_table %<>% filter(treatment == params$treatment)
-sample_table$time_to_delivery = sample_table$gestage_delivery - 
-  sample_table$gestage_enroll
+sample_table$time_to_delivery = sample_table$gestage_enroll - 
+  sample_table$gestage_delivery
 sample_names = paste(sample_table$sample_id,
                      sample_table$condition,
                      sample_table$treatment,sep = "_")
@@ -366,7 +366,6 @@ plot_node = function(gene_name) {
   ggplot(tb_expr, aes(res_time_to_delivery, res_expr)) +
     geom_smooth(method = lm, se = FALSE, color = "grey", size = 2) +
     geom_point(size = 2) +
-    scale_x_reverse() +
     ggtitle(gene_name) +
     xlab("resid(lm(time_to_delivery ~ gestage_delivery)") +
     ylab("resid(lm(expr ~ gestage_delivery))")
