@@ -4,7 +4,7 @@ author:
   name: Christof Seiler
   affiliation: Department of Statistics, Stanford University
 output:
-  BiocStyle::html_document2:
+  BiocStyle::html_document:
     toc_float: true
 ---
 
@@ -23,7 +23,7 @@ Install necessary packages from bioconductor repository. Run this code only once
 ```{r install_packages, warning=FALSE, message=FALSE}
 pkgs_needed = c("ggplot2","magrittr","readr","dplyr",
                 "readxl","stringr","tidyr","Rfit",
-                "jtools","ggthemes","cowplot")
+                "interactions","ggthemes","cowplot")
 letsinstall = setdiff(pkgs_needed, installed.packages()) 
 if (length(letsinstall) > 0) {
   source("http://bioconductor.org/biocLite.R")
@@ -42,7 +42,7 @@ library("readxl")
 library("stringr")
 library("tidyr")
 library("Rfit")
-library("jtools")
+library("interactions")
 library("ggthemes")
 library("cowplot")
 theme_set(theme_few())
@@ -211,6 +211,7 @@ summary(lm_fit)
 Refit linear model after removing possible outlier.
 
 ```{r fit_model_IFNL_outlier}
+qpcr_data_IFNL_with_outlier = qpcr_data_IFNL
 qpcr_data_IFNL %<>% dplyr::filter(sample_id != "1.1")
 lm_fit = lm(expr ~ treatment*time_to_delivery + 
               treatment*gestage_delivery + 
@@ -235,27 +236,50 @@ interact_plot(lm_fit, pred = "gestage_delivery", modx = "treatment",
 Plot interaction using using only `ggplot`. The function `interact_plot` plots intercepts and slopes with fixed `gestage_delivery` at their mean values.
 
 ```{r my_interact_plot, fig.width=8,fig.height=4,fig.wide=TRUE}
-coefs = coef(lm_fit)
-gmine = ggplot(qpcr_data_IFNL, aes(x = time_to_delivery, y = expr, 
-                                   color = treatment, shape = ptb)) + 
-  geom_point(size = 2)
-used_colors = unique(ggplot_build(gmine)$data[[1]]$colour)
-mean_gestage_delivery = mean(qpcr_data_IFNL$gestage_delivery)
-intercept = coefs["(Intercept)"] + 
-  coefs["gestage_delivery"]*mean_gestage_delivery
-h1n1 = coefs["treatmentH1N1:gestage_delivery"]*mean_gestage_delivery
-slope = coefs["time_to_delivery:gestage_delivery"]*mean_gestage_delivery
-gmine = gmine + 
-  geom_abline(intercept = intercept,
-              slope = slope + coefs["time_to_delivery"], 
-              color = used_colors[1], size = 1) +
-  geom_abline(intercept = intercept + h1n1 + coefs["treatmentH1N1"], 
-              slope = slope + coefs["time_to_delivery"] +
-                coefs["treatmentH1N1:time_to_delivery"],
-              color = used_colors[2], size = 1) +
-  ggtitle("IFNL")
-plot_grid(gtimeto,gmine)
+my_interaction_plot = function(lm_fit, qpcr_data_IFNL) {
+  coefs = coef(lm_fit)
+  gmine = ggplot(qpcr_data_IFNL, aes(x = time_to_delivery, y = expr, 
+                                     color = treatment, shape = ptb)) + 
+    geom_point(size = 2)
+  used_colors = unique(ggplot_build(gmine)$data[[1]]$colour)
+  mean_gestage_delivery = mean(qpcr_data_IFNL$gestage_delivery)
+  intercept = coefs["(Intercept)"] + 
+    coefs["gestage_delivery"]*mean_gestage_delivery
+  h1n1 = coefs["treatmentH1N1:gestage_delivery"]*mean_gestage_delivery
+  slope = coefs["time_to_delivery:gestage_delivery"]*mean_gestage_delivery
+  gmine + 
+    geom_abline(intercept = intercept,
+                slope = slope + coefs["time_to_delivery"], 
+                color = used_colors[1], size = 1) +
+    geom_abline(intercept = intercept + h1n1 + coefs["treatmentH1N1"], 
+                slope = slope + coefs["time_to_delivery"] +
+                  coefs["treatmentH1N1:time_to_delivery"],
+                color = used_colors[2], size = 1) +
+    ggtitle("IFNL")
+}
+gmine = my_interaction_plot(lm_fit, qpcr_data_IFNL)
+plot_grid(gtimeto, gmine)
 ggsave(gmine, filename = "interaction_time_to_delivery_IFNL.png",
+       width = 4, height = 3, dpi = 600)
+```
+
+Compare to fit with outlier.
+
+```{r with_outlier, fig.width=8,fig.height=4,fig.wide=TRUE}
+lm_fit_with_outlier = lm(expr ~ treatment*time_to_delivery + 
+                           treatment*gestage_delivery + 
+                           time_to_delivery*gestage_delivery,
+                         data = qpcr_data_IFNL_with_outlier)
+gtimeto_with_outlier = interact_plot(lm_fit_with_outlier, pred = "time_to_delivery", 
+              modx = "treatment",
+              plot.points = TRUE, jitter = 0) + 
+  ggtitle("IFNL (with outlier)")
+gmine_with_outlier = my_interaction_plot(lm_fit_with_outlier, 
+                                         qpcr_data_IFNL_with_outlier) + 
+  ggtitle("IFNL (with outlier)")
+plot_grid(gtimeto_with_outlier, gmine_with_outlier)
+ggsave(gmine_with_outlier, 
+       filename = "interaction_time_to_delivery_IFNL_with_outlier.png",
        width = 4, height = 3, dpi = 600)
 ```
 
