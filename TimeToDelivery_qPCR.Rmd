@@ -201,11 +201,11 @@ summary(lm_fit)
 Fit robust model using rank-based estimates of regression coefficients.
 
 ```{r fit_model_rank}
-lm_fit = rfit(expr ~ treatment*time_to_delivery + 
-              treatment*gestage_delivery + 
-              time_to_delivery*gestage_delivery, 
-            data = qpcr_data_IFNL)
-summary(lm_fit)
+lm_fit_robust = rfit(expr ~ treatment*time_to_delivery + 
+                       treatment*gestage_delivery + 
+                       time_to_delivery*gestage_delivery, 
+                     data = qpcr_data_IFNL)
+summary(lm_fit_robust)
 ```
 
 Refit linear model after removing possible outlier.
@@ -255,7 +255,7 @@ my_interaction_plot = function(lm_fit, qpcr_data_IFNL) {
                 slope = slope + coefs["time_to_delivery"] +
                   coefs["treatmentH1N1:time_to_delivery"],
                 color = used_colors[2], size = 1) +
-    ggtitle("IFNL")
+    ggtitle("IFNL (without 1.1)")
 }
 gmine = my_interaction_plot(lm_fit, qpcr_data_IFNL)
 plot_grid(gtimeto, gmine)
@@ -273,13 +273,25 @@ lm_fit_with_outlier = lm(expr ~ treatment*time_to_delivery +
 gtimeto_with_outlier = interact_plot(lm_fit_with_outlier, pred = "time_to_delivery", 
               modx = "treatment",
               plot.points = TRUE, jitter = 0) + 
-  ggtitle("IFNL (with outlier)")
+  ggtitle("IFNL")
 gmine_with_outlier = my_interaction_plot(lm_fit_with_outlier, 
                                          qpcr_data_IFNL_with_outlier) + 
-  ggtitle("IFNL (with outlier)")
+  ggtitle("IFNL")
 plot_grid(gtimeto_with_outlier, gmine_with_outlier)
 ggsave(gmine_with_outlier, 
        filename = "interaction_time_to_delivery_IFNL_with_outlier.png",
+       width = 4, height = 3, dpi = 600)
+```
+
+Compare to robust fit with outlier.
+
+```{r with_robust_fit, fig.width=4,fig.height=4,fig.wide=TRUE}
+gmine_with_outlier_robust = my_interaction_plot(lm_fit_robust, 
+                                                qpcr_data_IFNL_with_outlier) + 
+  ggtitle("IFNL (robust fit)")
+gmine_with_outlier_robust
+ggsave(gmine_with_outlier_robust, 
+       filename = "interaction_time_to_delivery_IFNL_robust_with_outlier.png",
        width = 4, height = 3, dpi = 600)
 ```
 
