@@ -312,7 +312,7 @@ ggplot(gene_table, aes(logFC, -log10(P.Value), color = show)) +
   ggtitle(ifelse(params$treatment == "unstim", 
                  "Unstimulated Samples", 
                  "Stimulated Samples"))
-ggsave(filename = paste0("log2_fc_",params$treatment,".pdf"))
+ggsave(filename = paste0("log2_fc_",params$treatment,".png"))
 ```
 
 Write to text file.
