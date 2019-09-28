@@ -30,7 +30,7 @@ pkgs_needed = c("oligo","limma","affycoretools","genefilter","glmnet",
                 "hta20transcriptcluster.db","ggfortify","magrittr",
                 "statmod","stringr","tibble","dplyr",
                 "STRINGdb","BioNet","DLBCL","org.Hs.eg.db","KEGGREST",
-                "igraph","intergraph","ggnetwork","ggthemes")
+                "igraph","intergraph","ggnetwork","ggthemes","readr")
 letsinstall = setdiff(pkgs_needed, installed.packages()) 
 if (length(letsinstall) > 0) {
   source("http://bioconductor.org/biocLite.R")
@@ -65,6 +65,7 @@ library("ggthemes")
 library("sna")
 library("statnet.common")
 library("network")
+library("readr")
 theme_set(theme_few())
 scale_colour_discrete = function(...) scale_colour_few()
 ```
@@ -87,6 +88,13 @@ cel_filenames = paste0(as.character(sample_table$array_name),".CEL")
 rawData = read.celfiles(cel_filenames, phenoData = pd, 
                         sampleNames = sample_names)
 rawData
+```
+
+Export sample table.
+
+```{r export_sample_table}
+current_filename = strsplit(knitr::current_input(), "\\.")[[1]][1]
+write_csv(sample_table,path = paste0(current_filename, ".csv"))
 ```
 
 # Preprocessing
