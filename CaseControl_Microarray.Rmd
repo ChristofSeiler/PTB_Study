@@ -27,7 +27,7 @@ Install necessary packages from bioconductor repository. Run this code only once
 pkgs_needed = c("oligo","limma","hta20transcriptcluster.db","pd.hta.2.0",
                 "affycoretools","genefilter","MatchIt","optmatch","ggfortify",
                 "magrittr","statmod","readr","dplyr","readxl","stringr",
-                "tibble")
+                "tibble","ggrepel")
 letsinstall = setdiff(pkgs_needed, installed.packages()) 
 if (length(letsinstall) > 0) {
   source("http://bioconductor.org/biocLite.R")
@@ -52,6 +52,7 @@ library("dplyr")
 library("readxl")
 library("stringr")
 library("tibble")
+library("ggrepel")
 ```
 
 # Import Data
