@@ -4,7 +4,7 @@ author:
   name: Christof Seiler
   affiliation: Department of Statistics, Stanford University
 output:
-  BiocStyle::html_document2:
+  BiocStyle::html_document:
     toc_float: true
 ---
 

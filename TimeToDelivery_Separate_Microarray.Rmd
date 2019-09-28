@@ -4,7 +4,7 @@ author:
   name: Christof Seiler
   affiliation: Department of Statistics, Stanford University
 output:
-  BiocStyle::html_document2:
+  BiocStyle::html_document:
     toc_float: true
 params:
   treatment: "H1N1"
@@ -225,7 +225,7 @@ for(i in 1:length(gene_table_list)) {
   separator = "-----------"
   cat(separator,names(gene_table_list)[i],separator,"\n")
   gene_table_subset = subset(gene_table_list[[i]],adj.P.Val < 0.1)
-  print(gene_table_subset[,c("logFC","adj.P.Val","symbol")])
+  print(gene_table_subset[,c("logFC","P.Value","adj.P.Val","symbol")])
   cat(separator,names(gene_table_list)[i],separator,"\n\n")
 }
 ```
