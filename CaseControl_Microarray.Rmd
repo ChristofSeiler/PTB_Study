@@ -4,7 +4,7 @@ author:
   name: Christof Seiler
   affiliation: Department of Statistics, Stanford University
 output:
-  BiocStyle::html_document2:
+  BiocStyle::html_document:
     toc_float: true
 params:
   treatment: "unstim"
@@ -25,7 +25,7 @@ Install necessary packages from bioconductor repository. Run this code only once
 
 ```{r install_packages, warning=FALSE, message=FALSE}
 pkgs_needed = c("oligo","limma","hta20transcriptcluster.db","pd.hta.2.0",
-                "affycoretools","genefilter","MatchIt","ggfortify",
+                "affycoretools","genefilter","MatchIt","optmatch","ggfortify",
                 "magrittr","statmod","readr","dplyr","readxl","stringr",
                 "tibble")
 letsinstall = setdiff(pkgs_needed, installed.packages()) 
@@ -114,11 +114,11 @@ for(i in 1:nrow(mout$match.matrix)) {
 sample_table %<>% dplyr::select(-group)
 sample_table %<>% na.omit
 sample_table %>% 
-  dplyr::select(sample_id,pair,ptb_case,gestage_pbmc_collected,
+  dplyr::select(sample_id,ptidno,pair,ptb_case,gestage_pbmc_collected,
                 gestage_delivery) %>% 
   arrange(pair,ptb_case) %>% 
   print(n = Inf)
-write_csv(sample_table,path = "sample_table_matched.csv")
+write_csv(sample_table,path = paste0("sample_table_matched_",params$treatment,".csv"))
 ggplot(sample_table, aes(as.factor(pair), gestage_pbmc_collected, 
                          color = ptb_case)) + 
   geom_jitter(position=position_dodge(width = 0.5),size = 2) +
@@ -283,6 +283,36 @@ map_gene_symbol = function(gene_table) {
 }
 gene_table = map_gene_symbol(gene_table)
 print(head(gene_table, n = 10))
+```
+
+Add gene names to standard volcano plot.
+
+```{r volcano_plot_gene_names}
+logfc_thres = 1 # logFC threshold
+pvalue_thres = 3.5 # -log10 of unadjusted p-value
+gene_table %<>% mutate(
+  show = ifelse(abs(logFC) > logfc_thres | pvalue_thres < -log10(P.Value),
+                "yes", "no")
+)
+ggplot(gene_table, aes(logFC, -log10(P.Value), color = show)) + 
+  geom_point() +
+  geom_vline(xintercept = c(-logfc_thres,logfc_thres), linetype = 2) +
+  geom_hline(yintercept = pvalue_thres, linetype = 2) +
+  geom_text_repel(
+    data = dplyr::filter(gene_table, show == "yes"),
+    aes(label = symbol),
+    size = 5,
+    box.padding = unit(0.35, "lines"),
+    point.padding = unit(0.3, "lines")
+  ) +
+  xlab("log2 fold change") +
+  ylab("-log10(p-value)") +
+  theme(legend.position = "none") +
+  scale_colour_manual(values = c("gray", "black")) +
+  ggtitle(ifelse(params$treatment == "unstim", 
+                 "Unstimulated Samples", 
+                 "Stimulated Samples"))
+ggsave(filename = paste0("log2_fc_",params$treatment,".pdf"))
 ```
 
 Write to text file.
