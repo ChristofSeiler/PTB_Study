@@ -69,6 +69,7 @@ sample_table %<>% dplyr::select(ptidno,
                                 gestage_pbmc_collected,
                                 gestage_delivery,
                                 sample_id = SampleID)
+write_csv(sample_table,path = "sample_table_case_control.csv")
 ```
 
 Find CEL files in current folder.
