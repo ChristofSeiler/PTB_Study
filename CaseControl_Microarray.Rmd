@@ -94,6 +94,7 @@ tb_file_name = lapply(sample_table$sample_id,function(id) {
 }) %>% bind_rows()
 sample_table %<>% dplyr::left_join(tb_file_name,by = "sample_id")
 sample_table %<>% na.omit
+table(sample_table$ptb_case)
 ```
 
 Match samples.
