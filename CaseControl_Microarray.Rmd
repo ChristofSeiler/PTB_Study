@@ -64,6 +64,11 @@ sample_table = read_csv("sample_table_from_word.csv")
 new_matched = read_excel("MSS Case_Control Matches (Masked)_new_matched.xlsx")
 sample_table %<>% dplyr::left_join(new_matched,by = "ptidno", 
                                    suffix = c("", "2"))
+ggplot(sample_table, aes(as.factor(ptb_casenum), gestage_pbmc_collected, 
+                         color = ptb_case)) + 
+  geom_jitter(position=position_dodge(width = 0.5),size = 2) +
+  xlab("matched pair id")
+ggsave(filename = "original_matching.pdf", width = 8, height = 4)
 sample_table %<>% dplyr::select(ptidno,
                                 ptb_case,
                                 gestage_pbmc_collected,
