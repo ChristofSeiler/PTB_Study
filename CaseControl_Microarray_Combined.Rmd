@@ -1,0 +1,36 @@
+---
+title: "Case-Control with Gestational Age Matching"
+author:
+  name: Christof Seiler
+  affiliation: Department of Statistics, Stanford University
+output:
+  BiocStyle::html_document:
+    toc_float: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Combine Tables
+
+Combine sample tables from stimulated and unstimulated matchings for table in paper.
+
+```{r}
+library("readr")
+library("dplyr")
+library("magrittr")
+sample_table_matched_stim = read_csv("sample_table_matched_stim.csv")
+sample_table_matched_unstim = read_csv("sample_table_matched_unstim.csv")
+sample_table = bind_rows(sample_table_matched_stim, 
+                         sample_table_matched_unstim)
+sample_table %<>% distinct(ptidno, .keep_all = TRUE)
+sample_table %<>% dplyr::select(-pair)
+write_csv(sample_table,path = "sample_table_case_control_combined.csv")
+```
+
+# Session Info {.unnumbered}
+
+```{r session_info}
+sessionInfo()
+```

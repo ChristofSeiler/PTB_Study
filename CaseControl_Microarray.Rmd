@@ -68,13 +68,6 @@ ggplot(sample_table, aes(as.factor(ptb_casenum), gestage_pbmc_collected,
                          color = ptb_case)) + 
   geom_jitter(position=position_dodge(width = 0.5),size = 2) +
   xlab("matched pair id")
-ggsave(filename = "original_matching.pdf", width = 8, height = 4)
-sample_table %<>% dplyr::select(ptidno,
-                                ptb_case,
-                                gestage_pbmc_collected,
-                                gestage_delivery,
-                                sample_id = SampleID)
-write_csv(sample_table,path = "sample_table_case_control.csv")
 ```
 
 Find CEL files in current folder.
