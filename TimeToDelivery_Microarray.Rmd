@@ -46,6 +46,7 @@ library("statmod")
 library("stringr")
 library("tibble")
 library("dplyr")
+library("readr")
 ```
 
 # Import Data
@@ -55,6 +56,8 @@ Then load Affymetrix CEL files. At this stage, Bioconductor will automatically d
 ```{r}
 sample_table = read.csv("sample_table.csv")
 cel_filenames = paste0(as.character(sample_table$array_name),".CEL")
+write_csv(sample_table %>% mutate(cel_filenames), 
+          path = "sample_table_cel.csv")
 pd = as(sample_table, "AnnotatedDataFrame")
 sample_names = paste(sample_table$sample_id,
                      sample_table$condition,
