@@ -22,8 +22,9 @@ Install necessary packages from bioconductor repository. Run this code only once
 
 ```{r install_packages, warning=FALSE, message=FALSE}
 pkgs_needed = c("ggplot2","magrittr","readr","dplyr",
-                "readxl","stringr","tidyr","Rfit",
-                "interactions","ggthemes","cowplot")
+                "readxl","stringr","tidyr","car",
+                "interactions","ggthemes","cowplot",
+                "MASS")
 letsinstall = setdiff(pkgs_needed, installed.packages()) 
 if (length(letsinstall) > 0) {
   source("http://bioconductor.org/biocLite.R")
@@ -41,10 +42,11 @@ library("dplyr")
 library("readxl")
 library("stringr")
 library("tidyr")
-library("Rfit")
+library("MASS")
 library("interactions")
 library("ggthemes")
 library("cowplot")
+library("car")
 theme_set(theme_few())
 scale_colour_discrete = function(...) scale_colour_few()
 ```
@@ -79,7 +81,7 @@ qpcr_data %<>% mutate(
 qpcr_data %<>% mutate(
   gene_name = sapply(strsplit(qpcr_data$key,split = "_"),
                      function(str) str[[1]]))
-qpcr_data %<>% select(-key)
+qpcr_data %<>% dplyr::select(-key)
 qpcr_data$treatment = factor(qpcr_data$treatment,levels = c("mock","H1N1"))
 qpcr_data %<>% rename(ptb = ptb_case)
 qpcr_data
@@ -128,7 +130,7 @@ summary(lm_fit)
 Fit robust model using rank-based estimates of regression coefficients.
 
 ```{r fit_model_RGS13_rank}
-lm_fit = rfit(expr ~ time_to_delivery + gestage_delivery, qpcr_data_RGS13)
+lm_fit = rlm(expr ~ time_to_delivery + gestage_delivery, qpcr_data_RGS13)
 summary(lm_fit)
 ```
 
@@ -191,21 +193,30 @@ ggplot(qpcr_data_IFNL,aes(x = gestage_delivery, y = expr,
 Fit model for `IFNL`.
 
 ```{r fit_model_IFNL}
-lm_fit = lm(expr ~ treatment*time_to_delivery + 
-              treatment*gestage_delivery + 
-              time_to_delivery*gestage_delivery, 
+lm_fit = lm(expr ~ treatment*time_to_delivery + gestage_delivery,
             data = qpcr_data_IFNL)
 summary(lm_fit)
 ```
 
-Fit robust model using rank-based estimates of regression coefficients.
+Fit robust linear model fit and bootstrap resampling for confidence intervals and p-values.
 
-```{r fit_model_rank}
-lm_fit_robust = rfit(expr ~ treatment*time_to_delivery + 
-                       treatment*gestage_delivery + 
-                       time_to_delivery*gestage_delivery, 
-                     data = qpcr_data_IFNL)
+```{r fit_model_rank, fig.height=8}
+lm_fit_robust = rlm(expr ~ treatment*time_to_delivery + gestage_delivery, 
+                    data = qpcr_data_IFNL, maxit = 200)
 summary(lm_fit_robust)
+# bootstrap confidence interval and p-value
+set.seed(0xdada)
+lm_fit_robust_boot = Boot(lm_fit_robust, R = 1999)
+summary(lm_fit_robust_boot)
+hist(lm_fit_robust_boot, legend="separate")
+Confint(lm_fit_robust_boot, level = 0.95, type = "perc")
+Confint(lm_fit_robust_boot, level = 0.95, type = "bca")
+# p-value for stimulation x time to delivery interaction term
+R = 1999
+t_obsv = lm_fit_robust_boot$t0["treatmentH1N1:time_to_delivery"]
+t_boot = lm_fit_robust_boot$t[,"treatmentH1N1:time_to_delivery"]-t_obsv
+pvalue = (1 + sum(abs(t_boot) > abs(t_obsv))) / (R + 1)
+pvalue
 ```
 
 Refit linear model after removing possible outlier.
@@ -213,10 +224,7 @@ Refit linear model after removing possible outlier.
 ```{r fit_model_IFNL_outlier}
 qpcr_data_IFNL_with_outlier = qpcr_data_IFNL
 qpcr_data_IFNL %<>% dplyr::filter(sample_id != "1.1")
-lm_fit = lm(expr ~ treatment*time_to_delivery + 
-              treatment*gestage_delivery + 
-              time_to_delivery*gestage_delivery,
-            data = qpcr_data_IFNL)
+lm_fit = lm(expr ~ treatment*time_to_delivery + gestage_delivery, data = qpcr_data_IFNL)
 summary(lm_fit)
 ```
 
@@ -245,14 +253,14 @@ my_interaction_plot = function(lm_fit, qpcr_data_IFNL) {
   mean_gestage_delivery = mean(qpcr_data_IFNL$gestage_delivery)
   intercept = coefs["(Intercept)"] + 
     coefs["gestage_delivery"]*mean_gestage_delivery
-  h1n1 = coefs["treatmentH1N1:gestage_delivery"]*mean_gestage_delivery
-  slope = coefs["time_to_delivery:gestage_delivery"]*mean_gestage_delivery
+  #h1n1 = coefs["treatmentH1N1:gestage_delivery"]*mean_gestage_delivery
+  #slope = coefs["time_to_delivery:gestage_delivery"]*mean_gestage_delivery
   gmine + 
     geom_abline(intercept = intercept,
-                slope = slope + coefs["time_to_delivery"], 
+                slope = coefs["time_to_delivery"], # slope + 
                 color = used_colors[1], size = 1) +
-    geom_abline(intercept = intercept + h1n1 + coefs["treatmentH1N1"], 
-                slope = slope + coefs["time_to_delivery"] +
+    geom_abline(intercept = intercept + coefs["treatmentH1N1"], # h1n1 + 
+                slope = coefs["time_to_delivery"] + # slope + 
                   coefs["treatmentH1N1:time_to_delivery"],
                 color = used_colors[2], size = 1) +
     ggtitle("IFNL (without 1.1)")
@@ -266,9 +274,7 @@ ggsave(gmine, filename = "interaction_time_to_delivery_IFNL.png",
 Compare to fit with outlier.
 
 ```{r with_outlier, fig.width=8,fig.height=4,fig.wide=TRUE}
-lm_fit_with_outlier = lm(expr ~ treatment*time_to_delivery + 
-                           treatment*gestage_delivery + 
-                           time_to_delivery*gestage_delivery,
+lm_fit_with_outlier = lm(expr ~ treatment*time_to_delivery + gestage_delivery,
                          data = qpcr_data_IFNL_with_outlier)
 gtimeto_with_outlier = interact_plot(lm_fit_with_outlier, pred = "time_to_delivery", 
               modx = "treatment",
