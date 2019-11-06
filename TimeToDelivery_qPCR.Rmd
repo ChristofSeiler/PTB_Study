@@ -6,6 +6,8 @@ author:
 output:
   BiocStyle::html_document:
     toc_float: true
+params:
+  treatment: "H1N1"
 ---
 
 ```{r setup, include=FALSE}
@@ -24,7 +26,7 @@ Install necessary packages from bioconductor repository. Run this code only once
 pkgs_needed = c("ggplot2","magrittr","readr","dplyr",
                 "readxl","stringr","tidyr","car",
                 "interactions","ggthemes","cowplot",
-                "MASS")
+                "MASS", "boot")
 letsinstall = setdiff(pkgs_needed, installed.packages()) 
 if (length(letsinstall) > 0) {
   source("http://bioconductor.org/biocLite.R")
@@ -47,8 +49,14 @@ library("interactions")
 library("ggthemes")
 library("cowplot")
 library("car")
+library("boot")
 theme_set(theme_few())
 scale_colour_discrete = function(...) scale_colour_few()
+if(params$treatment == "H1N1") {
+  color_condition = "#FAA43A"
+} else {
+  color_condition = "#5DA5DA"
+}
 ```
 
 # Import Data
@@ -95,6 +103,7 @@ Subset to RGS13.
 
 ```{r subset_RGS13}
 qpcr_data_RGS13 = qpcr_data %>% dplyr::filter(gene_name == "RGS13")
+table(qpcr_data_RGS13$gene_name)
 ```
 
 Plotting to see possible outliers.
@@ -146,15 +155,17 @@ Plot of fitted intercept and slope with `gestage_delivery` fixed at its mean val
 
 ```{r fit_model_RGS13_outlier_plot, fig.width=4,fig.height=4}
 coefs = coef(lm_fit)
-gmine = ggplot(qpcr_data_RGS13, aes(x = time_to_delivery, y = expr, 
-                                    color = treatment, shape = ptb)) + 
-  geom_point(size = 2)
-used_colors = unique(ggplot_build(gmine)$data[[1]]$colour)
+gmine = ggplot(qpcr_data_RGS13, 
+               aes(x = time_to_delivery, y = expr, shape = ptb, color = treatment)) + 
+  geom_point(size = 2) + 
+  scale_colour_manual(values = color_condition)
+
 mean_gestage = mean(qpcr_data_RGS13$gestage_delivery)
+
 gmine + geom_abline(intercept = coefs["(Intercept)"] + 
                       mean_gestage*coefs["gestage_delivery"],
                     slope = coefs["time_to_delivery"],
-                    color = used_colors[1], size = 1) + ggtitle("RGS13")
+                    color = color_condition, size = 1) + ggtitle("RGS13")
 ggsave(filename = "time_to_delivery_RGS13.png",
        width = 4,height = 3,dpi = 600)
 ```
@@ -164,7 +175,9 @@ ggsave(filename = "time_to_delivery_RGS13.png",
 Subset to `IFNL`.
 
 ```{r subset_IFNL}
-qpcr_data_IFNL = qpcr_data %>% dplyr::filter(gene_name == "IFNL")
+qpcr_data_IFNL = qpcr_data %>% 
+  dplyr::filter(gene_name == "IFNL") %>%
+  dplyr::filter(treatment == params$treatment)
 ```
 
 Plotting to see possible outliers.
@@ -193,16 +206,14 @@ ggplot(qpcr_data_IFNL,aes(x = gestage_delivery, y = expr,
 Fit model for `IFNL`.
 
 ```{r fit_model_IFNL}
-lm_fit = lm(expr ~ treatment*time_to_delivery + gestage_delivery,
-            data = qpcr_data_IFNL)
+lm_fit = lm(expr ~ time_to_delivery + gestage_delivery, data = qpcr_data_IFNL)
 summary(lm_fit)
 ```
 
 Fit robust linear model fit and bootstrap resampling for confidence intervals and p-values.
 
 ```{r fit_model_rank, fig.height=8}
-lm_fit_robust = rlm(expr ~ treatment*time_to_delivery + gestage_delivery, 
-                    data = qpcr_data_IFNL, maxit = 200)
+lm_fit_robust = rlm(expr ~ time_to_delivery + gestage_delivery, data = qpcr_data_IFNL, maxit = 200)
 summary(lm_fit_robust)
 # bootstrap confidence interval and p-value
 set.seed(0xdada)
@@ -213,8 +224,8 @@ Confint(lm_fit_robust_boot, level = 0.95, type = "perc")
 Confint(lm_fit_robust_boot, level = 0.95, type = "bca")
 # p-value for stimulation x time to delivery interaction term
 R = 1999
-t_obsv = lm_fit_robust_boot$t0["treatmentH1N1:time_to_delivery"]
-t_boot = lm_fit_robust_boot$t[,"treatmentH1N1:time_to_delivery"]-t_obsv
+t_obsv = lm_fit_robust_boot$t0["time_to_delivery"]
+t_boot = lm_fit_robust_boot$t[,"time_to_delivery"]-t_obsv
 pvalue = (1 + sum(abs(t_boot) > abs(t_obsv))) / (R + 1)
 pvalue
 ```
@@ -223,81 +234,30 @@ Refit linear model after removing possible outlier.
 
 ```{r fit_model_IFNL_outlier}
 qpcr_data_IFNL_with_outlier = qpcr_data_IFNL
-qpcr_data_IFNL %<>% dplyr::filter(sample_id != "1.1")
-lm_fit = lm(expr ~ treatment*time_to_delivery + gestage_delivery, data = qpcr_data_IFNL)
+lm_fit = lm(expr ~ time_to_delivery + gestage_delivery, 
+            data = qpcr_data_IFNL %>% 
+              dplyr::filter(sample_id != "1.1"))
 summary(lm_fit)
 ```
 
-More modern looking visualization using the `jtools` package.
+Residual plots.
 
-```{r interact_plot, fig.width=4,fig.height=4}
-gtimeto = interact_plot(lm_fit, pred = "time_to_delivery", 
-                        modx = "treatment",
-                        plot.points = TRUE, jitter = 0) + 
-  ggtitle("IFNL")
-gtimeto
-interact_plot(lm_fit, pred = "gestage_delivery", modx = "treatment",
-              plot.points = TRUE, jitter = 0) + 
-  ggtitle("IFNL")
-```
-
-Plot interaction using using only `ggplot`. The function `interact_plot` plots intercepts and slopes with fixed `gestage_delivery` at their mean values.
-
-```{r my_interact_plot, fig.width=8,fig.height=4,fig.wide=TRUE}
-my_interaction_plot = function(lm_fit, qpcr_data_IFNL) {
-  coefs = coef(lm_fit)
-  gmine = ggplot(qpcr_data_IFNL, aes(x = time_to_delivery, y = expr, 
-                                     color = treatment, shape = ptb)) + 
-    geom_point(size = 2)
-  used_colors = unique(ggplot_build(gmine)$data[[1]]$colour)
-  mean_gestage_delivery = mean(qpcr_data_IFNL$gestage_delivery)
-  intercept = coefs["(Intercept)"] + 
-    coefs["gestage_delivery"]*mean_gestage_delivery
-  #h1n1 = coefs["treatmentH1N1:gestage_delivery"]*mean_gestage_delivery
-  #slope = coefs["time_to_delivery:gestage_delivery"]*mean_gestage_delivery
-  gmine + 
-    geom_abline(intercept = intercept,
-                slope = coefs["time_to_delivery"], # slope + 
-                color = used_colors[1], size = 1) +
-    geom_abline(intercept = intercept + coefs["treatmentH1N1"], # h1n1 + 
-                slope = coefs["time_to_delivery"] + # slope + 
-                  coefs["treatmentH1N1:time_to_delivery"],
-                color = used_colors[2], size = 1) +
-    ggtitle("IFNL (without 1.1)")
-}
-gmine = my_interaction_plot(lm_fit, qpcr_data_IFNL)
-plot_grid(gtimeto, gmine)
-ggsave(gmine, filename = "interaction_time_to_delivery_IFNL.png",
-       width = 4, height = 3, dpi = 600)
-```
-
-Compare to fit with outlier.
-
-```{r with_outlier, fig.width=8,fig.height=4,fig.wide=TRUE}
-lm_fit_with_outlier = lm(expr ~ treatment*time_to_delivery + gestage_delivery,
-                         data = qpcr_data_IFNL_with_outlier)
-gtimeto_with_outlier = interact_plot(lm_fit_with_outlier, pred = "time_to_delivery", 
-              modx = "treatment",
-              plot.points = TRUE, jitter = 0) + 
-  ggtitle("IFNL")
-gmine_with_outlier = my_interaction_plot(lm_fit_with_outlier, 
-                                         qpcr_data_IFNL_with_outlier) + 
-  ggtitle("IFNL")
-plot_grid(gtimeto_with_outlier, gmine_with_outlier)
-ggsave(gmine_with_outlier, 
-       filename = "interaction_time_to_delivery_IFNL_with_outlier.png",
-       width = 4, height = 3, dpi = 600)
-```
-
-Compare to robust fit with outlier.
-
-```{r with_robust_fit, fig.width=4,fig.height=4,fig.wide=TRUE}
-gmine_with_outlier_robust = my_interaction_plot(lm_fit_robust, 
-                                                qpcr_data_IFNL_with_outlier) + 
+```{r residual_plots, fig.width=4, fig.height=4}
+tb_subset = qpcr_data_IFNL
+rlm_delivery = rlm(expr ~ gestage_delivery, data = tb_subset)
+tb_subset %<>% mutate(residual_expr = rlm_delivery$residuals)
+rlm_delivery = rlm(residual_expr ~ time_to_delivery, data = tb_subset)
+a = rlm_delivery$coefficients[[1]]
+b = rlm_delivery$coefficients[[2]]
+tb_subset %<>% mutate(y_hat = a + b*tb_subset$time_to_delivery)
+gmine_with_outlier = ggplot(tb_subset, aes(time_to_delivery, residual_expr, color = treatment)) +
+  geom_abline(intercept = a, slope = b, color = color_condition, size = 1) +
+  geom_point() + 
+  scale_colour_manual(values = color_condition) +
   ggtitle("IFNL (robust fit)")
-gmine_with_outlier_robust
-ggsave(gmine_with_outlier_robust, 
-       filename = "interaction_time_to_delivery_IFNL_robust_with_outlier.png",
+gmine_with_outlier
+ggsave(gmine_with_outlier, 
+       filename = paste0("robust_fit_IFNL_", params$treatment, ".png"),
        width = 4, height = 3, dpi = 600)
 ```
 
