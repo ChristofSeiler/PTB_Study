@@ -321,6 +321,8 @@ module
 
 Differential expression is coloured in red (upregulated), green (downregulated), and white (neutral). Shapes represent scores: rectangles are negative and circles are positive.
 
+**Note that in limma, for continuous predictors, the log-fold changes (log-fc) are the regression coefficients.**
+
 ```{r plot_network, fig.wide=TRUE}
 plot_network = function(color_name) {
   if(length(V(module)) < 2) 
@@ -335,7 +337,7 @@ plot_network = function(color_name) {
   ids = sapply(module_df$vertex.names, 
                function(id) which(id == mapped$STRING_id)[1])
   module_df %<>% mutate(t_statistic = mapped$t[ids])
-  module_df %<>% mutate(log_fc = mapped$logFC[ids])
+  module_df %<>% mutate(coefficient = mapped$logFC[ids])
   module_df %<>% mutate(symbol = mapped$symbol[ids])
   ggplot(module_df, aes(x = x, y = y, xend = xend, yend = yend)) +
     geom_edges() +
@@ -349,10 +351,13 @@ plot_network = function(color_name) {
                           high = "red", space = "Lab" ) +
     theme_blank()
 }
+set.seed(0xdada)
 plot_network("t_statistic")
 ggsave(filename = "network_t_statistic.pdf", width = 10, height = 6)
-plot_network("log_fc")
-ggsave(filename = "network_log_fc.pdf", width = 10, height = 6)
+ggsave(filename = "network_t_statistic.png", width = 10, height = 6)
+plot_network("coefficient")
+ggsave(filename = "network_log_coefficient.pdf", width = 10, height = 6)
+ggsave(filename = "network_log_coefficient.png", width = 10, height = 6)
 ```
 
 ## Single Genes Expression
