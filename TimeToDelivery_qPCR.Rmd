@@ -254,11 +254,14 @@ gmine_with_outlier = ggplot(tb_subset, aes(time_to_delivery, residual_expr, colo
   geom_abline(intercept = a, slope = b, color = color_condition, size = 1) +
   geom_point() + 
   scale_colour_manual(values = color_condition) +
-  ggtitle("IFNL (robust fit)")
+  ggtitle("IFNL (robust fit)") +
+  xlab("time to delivery") +
+  ylab("residual expression") +
+  theme(legend.position = "bottom")
 gmine_with_outlier
 ggsave(gmine_with_outlier, 
        filename = paste0("robust_fit_IFNL_", params$treatment, ".png"),
-       width = 4, height = 3, dpi = 600)
+       width = 3, height = 4, dpi = 600)
 ```
 
 # Session Info {.unnumbered}
