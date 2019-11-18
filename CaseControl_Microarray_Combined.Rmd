@@ -4,8 +4,10 @@ author:
   name: Christof Seiler
   affiliation: Department of Statistics, Stanford University
 output:
-  BiocStyle::html_document:
-    toc_float: true
+  BiocStyle::pdf_document:
+    toc: FALSE
+    fig_width: 5
+    fig_height: 4
 ---
 
 ```{r setup, include=FALSE}
@@ -16,10 +18,13 @@ knitr::opts_chunk$set(echo = TRUE)
 
 Combine sample tables from stimulated and unstimulated matchings for table in paper.
 
-```{r}
+```{r combine, warning=FALSE, message=FALSE}
 library("readr")
 library("dplyr")
 library("magrittr")
+library("ggplot2")
+library("ggthemes")
+theme_set(theme_few())
 sample_table_matched_stim = read_csv("sample_table_matched_stim.csv")
 sample_table_matched_unstim = read_csv("sample_table_matched_unstim.csv")
 sample_table = bind_rows(sample_table_matched_stim, 
@@ -29,7 +34,21 @@ sample_table %<>% dplyr::select(-pair)
 write_csv(sample_table,path = "sample_table_case_control_combined.csv")
 ```
 
-# Session Info {.unnumbered}
+Characteristics of the study population.
+
+```{r summary_stats, out.width = "50%"}
+sample_table %<>% mutate(
+  time_to_delivery = gestage_pbmc_collected - gestage_delivery
+  )
+sample_table %>% 
+  group_by(ptb_case) %>% 
+  summarize(median_time_to_delivery = median(time_to_delivery))
+wilcox.test(time_to_delivery ~ ptb_case, data = sample_table)
+ggplot(sample_table, aes(time_to_delivery, fill = ptb_case)) + 
+  geom_histogram(bins = 10, alpha = 0.5, position = "identity")
+```
+
+Session info.
 
 ```{r session_info}
 sessionInfo()

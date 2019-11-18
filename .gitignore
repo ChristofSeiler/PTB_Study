@@ -19,3 +19,5 @@ original_matching.pdf
 sample_table_case_control_combined.csv
 sample_table_cel.csv
 network_log_coefficient.pdf
+*.log
+CaseControl_Microarray_Combined.pdf
