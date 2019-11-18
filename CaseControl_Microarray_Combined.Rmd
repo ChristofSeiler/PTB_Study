@@ -23,8 +23,6 @@ library("readr")
 library("dplyr")
 library("magrittr")
 library("ggplot2")
-library("ggthemes")
-theme_set(theme_few())
 sample_table_matched_stim = read_csv("sample_table_matched_stim.csv")
 sample_table_matched_unstim = read_csv("sample_table_matched_unstim.csv")
 sample_table = bind_rows(sample_table_matched_stim, 
