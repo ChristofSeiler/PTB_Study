@@ -4,8 +4,10 @@ author:
   name: Christof Seiler
   affiliation: Department of Statistics, Stanford University
 output:
-  BiocStyle::html_document:
-    toc_float: true
+  BiocStyle::pdf_document:
+    toc: TRUE
+    fig_width: 5
+    fig_height: 4
 params:
   treatment: "unstim"
 ---
@@ -59,7 +61,7 @@ library("ggrepel")
 
 Read sample tables. Merge with sample information table.
 
-```{r read_sample_table}
+```{r read_sample_table, fig.width=6, out.width="70%"}
 sample_table = read_csv("sample_table_from_word.csv")
 new_matched = read_excel("MSS Case_Control Matches (Masked)_new_matched.xlsx")
 sample_table %<>% dplyr::left_join(new_matched,by = "ptidno", 
@@ -68,6 +70,11 @@ ggplot(sample_table, aes(as.factor(ptb_casenum), gestage_pbmc_collected,
                          color = ptb_case)) + 
   geom_jitter(position=position_dodge(width = 0.5),size = 2) +
   xlab("matched pair id")
+sample_table %<>% dplyr::select(ptidno,
+                                ptb_case,
+                                gestage_pbmc_collected,
+                                gestage_delivery,
+                                sample_id = SampleID)
 ```
 
 Find CEL files in current folder.
@@ -97,7 +104,7 @@ table(sample_table$ptb_case)
 
 Match samples.
 
-```{r match_samples}
+```{r match_samples, fig.width=6, out.width="70%"}
 set.seed(0xdada2)
 sample_table$group = sample_table$ptb_case == "case"
 mout = matchit(group ~ gestage_pbmc_collected, 
@@ -140,7 +147,7 @@ rawData
 
 MA plots on the first three samples.
 
-```{r maplot}
+```{r maplot, out.width="50%"}
 MAplot(rawData[, 1:3], pairs=TRUE)
 ```
 
@@ -185,9 +192,12 @@ save(eset,file = "eset.Rdata")
 
 PCA plot of normalized expressions.
 
-```{r pca_plots}
+```{r pca_plots_scree, fig.width=6, fig.height=6, out.width="50%"}
 res_pca = prcomp(t(exprs(eset)), scale. = FALSE)
 screeplot(res_pca)
+```
+
+```{r pca_plots, fig.width=7, fig.height=7, out.width="80%"}
 sample_table_annotated = eset@phenoData@data
 sample_table_annotated$pair %<>% as.factor
 asp_ratio = res_pca$sdev[2]^2/res_pca$sdev[1]^2
@@ -216,14 +226,16 @@ autoplot(res_pca,
 
 # Differential Expression Analyses
 
-Use ``limma`` for linear models to assess difference in expression. Paired analysis as described in Section 9.4.1 on page 42 in the [limma vignette](https://www.bioconductor.org/packages/devel/bioc/vignettes/limma/inst/doc/usersguide.pdf). 
+Use ``limma`` for linear models to assess difference in expression. Paired analysis as described in Section 9.4.1 on page 42 in the [limma vignette](https://www.bioconductor.org/packages/release/bioc/vignettes/limma/inst/doc/usersguide.pdf). 
 
-Automatic independent filtering: 
+Automatic independent filtering as described in [DESeq2 doc](https://www.bioconductor.org/packages/release/bioc/vignettes/DESeq2/inst/doc/DESeq2.html#indfilttheory): 
 
-1. Estimate the correlation between measurements made on the same subject. 
-2. Then this inter-subject correlation is input into the linear model fit. 
-3. Then compute moderated t-tests.
-4. The topTable command provides us a way of ranking genes for further evaluation. In the case below, we adjust for multiple testing by FDR. 
+1. Filter genes based on mean expression
+2. Fit linear model
+3. Compute moderated $t$-tests
+4. Count number of rejections at FDR of 10%
+
+Pick the threshold that maximizes the number of discoveries.
 
 ```{r paired_samples}
 mean_expr = rowMeans(exprs(eset))
@@ -253,9 +265,9 @@ num_sig
 fit = fit_list[[which.max(num_sig)]]
 ```
 
-The topTable command provides us a way of ranking genes for further evaluation. In the case below, we adjust for multiple testing by FDR.
+The `topTable` command provides us a way of ranking genes for further evaluation. In the case below, we adjust for multiple testing by FDR.
 
-```{r}
+```{r out.width="50%"}
 gene_table = topTable(fit, coef = "treatcase", adjust = "BH", 
                       number = nrow(fit))
 hist(gene_table$P.Value,breaks = 20)
@@ -264,7 +276,7 @@ sum(gene_table$adj.P.Val < 0.1)
 
 Volcano plots for quality control.
 
-```{r}
+```{r out.width="50%"}
 volcanoplot(fit, coef = "treatcase", highlight = 10)
 ```
 
@@ -288,7 +300,7 @@ print(head(gene_table, n = 10))
 
 Add gene names to standard volcano plot.
 
-```{r volcano_plot_gene_names}
+```{r volcano_plot_gene_names, fig.width=6, fig.height=6, out.width="70%"}
 logfc_thres = 1 # logFC threshold
 pvalue_thres = 3.5 # -log10 of unadjusted p-value
 gene_table %<>% mutate(
