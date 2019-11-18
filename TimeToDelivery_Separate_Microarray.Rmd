@@ -4,8 +4,10 @@ author:
   name: Christof Seiler
   affiliation: Department of Statistics, Stanford University
 output:
-  BiocStyle::html_document:
-    toc_float: true
+  BiocStyle::pdf_document:
+    toc: TRUE
+    fig_width: 5
+    fig_height: 4
 params:
   treatment: "H1N1"
 ---
@@ -129,9 +131,12 @@ eset = ExpressionSet(assayData = exprs(eset)[keep_ids,],
 
 PCA plot of normalized expressions.
 
-```{r pca_plot}
+```{r pca_plots_scree, fig.width=6, fig.height=6, out.width="50%"}
 res_pca = prcomp(t(exprs(eset)),scale. = FALSE)
 screeplot(res_pca)
+```
+
+```{r pca_plots, fig.width=7, fig.height=7, out.width="80%"}
 sample_table = eset@phenoData@data
 asp_ratio = res_pca$sdev[2]^2/res_pca$sdev[1]^2
 autoplot(res_pca, data = sample_table, colour = 'treatment', 
@@ -187,7 +192,7 @@ fit = fit_list[[which.max(num_sig)]]
 
 Save results in a list of tables.
 
-```{r top_table}
+```{r top_table, out.width="50%"}
 coeffs = colnames(design)[-1]
 gene_table_list = lapply(coeffs, function(coeff_name) {
   gene_table = topTable(fit, 
@@ -202,7 +207,7 @@ names(gene_table_list) = coeffs
 
 Volcano plots for quality control.
 
-```{r volcanoplot}
+```{r volcanoplot, out.width="50%"}
 for(coeff_name in coeffs) {
   cat(coeff_name,"\n")
   volcanoplot(fit,coef = coeff_name,highlight = 10)
@@ -233,7 +238,8 @@ for(i in 1:length(gene_table_list)) {
   separator = "-----------"
   cat(separator,names(gene_table_list)[i],separator,"\n")
   gene_table_subset = subset(gene_table_list[[i]],adj.P.Val < 0.1)
-  print(gene_table_subset[,c("logFC","P.Value","adj.P.Val","symbol")])
+  gene_table_subset %<>% as_tibble()
+  print(gene_table_subset)
   cat(separator,names(gene_table_list)[i],separator,"\n\n")
 }
 ```
@@ -242,9 +248,13 @@ Write to text file.
 
 ```{r write_genes}
 for(i in 1:length(gene_table_list)) {
-  file_name_results = paste0(names(gene_table_list)[i],"_results.csv")
+  file_name_results = paste0(names(gene_table_list)[i],"_results_",
+                             params$treatment,
+                             ".csv")
   cat("writting:",file_name_results,"\n")
-  write.csv(gene_table_list[[i]],file = file_name_results)
+  gene_table_list[[i]] %>% 
+    as_tibble() %>% 
+    write_csv(path = file_name_results)
 }
 ```
 
@@ -288,7 +298,7 @@ head(interactions)
 
 Fit a Beta-Uniform model.
 
-```{r fit_bum_model, fig.wide=TRUE}
+```{r fit_bum_model, fig.width=8, out.width="80%"}
 pval = mapped$P.Value
 names(pval) = mapped$STRING_id
 fb = fitBumModel(pval)
@@ -297,7 +307,7 @@ fb
 
 Set the `fdr` parameter which can be interpreted as the FDR of the subgraph. Smaller values will produce a smaller maximum subgraph. You should try a few values (e.g. 0.05, 0.01, 0.001) to obtain a reasonable small subgraph that permits biological interpretation. First, we convert the interaction table into an igraph object and make the nodes names human readible. Then we search for the optimal subgraph.
 
-```{r run_fast_heinz}
+```{r run_fast_heinz, out.width="50%"}
 fdr_vec = seq(0.1,0.01,-0.01)
 network = graph_from_data_frame(interactions)
 module_list = mclapply(fdr_vec, function(fdr) {
@@ -323,7 +333,7 @@ Differential expression is coloured in red (upregulated), green (downregulated),
 
 **Note that in limma, for continuous predictors, the log-fold changes (log-fc) are the regression coefficients.**
 
-```{r plot_network, fig.wide=TRUE}
+```{r plot_network, fig.width=10, fig.height=6, out.width="100%"}
 plot_network = function(color_name) {
   if(length(V(module)) < 2) 
     return("need two or more nodes")
@@ -364,7 +374,7 @@ ggsave(filename = "network_log_coefficient.png", width = 10, height = 6)
 
 Scatter plot for some genes in the network.
 
-```{r scatter_plot, fig.width=4, fig.height=4}
+```{r scatter_plot, out.width="50%"}
 plot_node = function(gene_name) {
   probe_id = e2s[which(e2s$symbol == gene_name), "probe_id"]
   tb_expr = tibble(
@@ -391,7 +401,7 @@ plot_node("SNORD18A")
 
 Calculate number of genes that our network on known pathways have in common. Only keep pathways that overlap at least 5% of genes. Visualize pathway overlap.
 
-```{r calculate_pathway_overlap}
+```{r calculate_pathway_overlap, fig.height=5, out.width="50%"}
 plot_pathway = function(module) {
   if(length(V(module)) < 2)
     return("need two or more nodes")
@@ -452,7 +462,7 @@ plot_pathway(module)
 
 Use Lasso to predict time to delivery from gene expressions.
 
-```{r lasso_prediction}
+```{r lasso_prediction, out.width="50%"}
 set.seed(0xdada)
 exprs_table = t(exprs(eset))
 sample_table = eset@phenoData@data
