@@ -4,8 +4,10 @@ author:
   name: Christof Seiler
   affiliation: Department of Statistics, Stanford University
 output:
-  BiocStyle::html_document:
-    toc_float: true
+  BiocStyle::pdf_document:
+    toc: TRUE
+    fig_width: 5
+    fig_height: 4
 params:
   treatment: "H1N1"
 ---
@@ -57,6 +59,7 @@ if(params$treatment == "H1N1") {
 } else {
   color_condition = "#5DA5DA"
 }
+params$treatment
 ```
 
 # Import Data
@@ -108,7 +111,7 @@ table(qpcr_data_RGS13$gene_name)
 
 Plotting to see possible outliers.
 
-```{r plotting_RGS13,fig.width=4,fig.height=4}
+```{r plotting_RGS13, out.width="50%"}
 ggplot(qpcr_data_RGS13,aes(expr)) + 
   geom_histogram(bins = 30) + 
   facet_wrap(~ptb) +
@@ -153,10 +156,11 @@ summary(lm_fit)
 
 Plot of fitted intercept and slope with `gestage_delivery` fixed at its mean value.
 
-```{r fit_model_RGS13_outlier_plot, fig.width=4,fig.height=4}
+```{r fit_model_RGS13_outlier_plot, out.width="50%"}
 coefs = coef(lm_fit)
 gmine = ggplot(qpcr_data_RGS13, 
-               aes(x = time_to_delivery, y = expr, shape = ptb, color = treatment)) + 
+               aes(x = time_to_delivery, y = expr, 
+                   shape = ptb, color = treatment)) + 
   geom_point(size = 2) + 
   scale_colour_manual(values = color_condition)
 
@@ -182,7 +186,7 @@ qpcr_data_IFNL = qpcr_data %>%
 
 Plotting to see possible outliers.
 
-```{r plotting_IFNL,fig.width=4,fig.height=4}
+```{r plotting_IFNL, out.width="50%"}
 ggplot(qpcr_data_IFNL,aes(expr)) + 
   geom_histogram(bins = 30) + 
   facet_wrap(~ptb) +
@@ -210,10 +214,11 @@ lm_fit = lm(expr ~ time_to_delivery + gestage_delivery, data = qpcr_data_IFNL)
 summary(lm_fit)
 ```
 
-Fit robust linear model fit and bootstrap resampling for confidence intervals and p-values.
+Fit robust linear model fit and bootstrap resampling for confidence intervals and *p*-values.
 
-```{r fit_model_rank, fig.height=8}
-lm_fit_robust = rlm(expr ~ time_to_delivery + gestage_delivery, data = qpcr_data_IFNL, maxit = 200)
+```{r fit_model_rank, fig.height=5, fig.width=8, out.width="90%"}
+lm_fit_robust = rlm(expr ~ time_to_delivery + gestage_delivery, 
+                    data = qpcr_data_IFNL, maxit = 200)
 summary(lm_fit_robust)
 # bootstrap confidence interval and p-value
 set.seed(0xdada)
@@ -242,7 +247,7 @@ summary(lm_fit)
 
 Residual plots.
 
-```{r residual_plots, fig.width=4, fig.height=4}
+```{r residual_plots, fig.width= 3, out.width="40%"}
 tb_subset = qpcr_data_IFNL
 rlm_delivery = rlm(expr ~ gestage_delivery, data = tb_subset)
 tb_subset %<>% mutate(residual_expr = rlm_delivery$residuals)
@@ -250,7 +255,8 @@ rlm_delivery = rlm(residual_expr ~ time_to_delivery, data = tb_subset)
 a = rlm_delivery$coefficients[[1]]
 b = rlm_delivery$coefficients[[2]]
 tb_subset %<>% mutate(y_hat = a + b*tb_subset$time_to_delivery)
-gmine_with_outlier = ggplot(tb_subset, aes(time_to_delivery, residual_expr, color = treatment)) +
+gmine_with_outlier = ggplot(tb_subset, aes(time_to_delivery, residual_expr, 
+                                           color = treatment)) +
   geom_abline(intercept = a, slope = b, color = color_condition, size = 1) +
   geom_point() + 
   scale_colour_manual(values = color_condition) +
