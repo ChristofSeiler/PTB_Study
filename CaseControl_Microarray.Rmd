@@ -188,6 +188,21 @@ exprs(eset)[1:10, 1:2]
 save(eset,file = "eset.Rdata")
 ```
 
+Write processed expressions to file for GEO upload.
+
+```{r geo_upload}
+geo_exprs_rma = exprs(eset)
+condition = ifelse(pData(eset)$ptb_case == "control", 
+                   yes = "Term", no = "Preterm")
+sample_name = paste0(pData(eset)$sample_id, "_",
+                     condition, "_", 
+                     ifelse(params$treatment == "stim", 
+                            yes = "H1N1", "Mock"))
+colnames(geo_exprs_rma) = sample_name
+geo_exprs_rma %<>% as_tibble(rownames = "ID_REF")
+write_csv(geo_exprs_rma, path = paste0("case_control_rma_", params$treatment, ".csv"))
+```
+
 # Data Exploration
 
 PCA plot of normalized expressions.
@@ -291,11 +306,18 @@ map_gene_symbol = function(gene_table) {
     matching_symbol
   }) %>% unlist
   gene_table = cbind(gene_table,symbol=symbol,stringsAsFactors=FALSE)
-  print(head(gene_table))
   gene_table
 }
 gene_table = map_gene_symbol(gene_table)
 print(head(gene_table, n = 10))
+```
+
+Write to text file.
+
+```{r write_processed_data}
+file_name_processed = paste0("case_control_", params$treatment, ".csv")
+file_name_processed
+write_csv(gene_table, path = file_name_processed)
 ```
 
 Add gene names to standard volcano plot.
@@ -326,12 +348,6 @@ ggplot(gene_table, aes(logFC, -log10(P.Value), color = show)) +
                  "Unstimulated Samples", 
                  "Stimulated Samples"))
 ggsave(filename = paste0("log2_fc_",params$treatment,".png"))
-```
-
-Write to text file.
-
-```{r}
-write_csv(gene_table,path = "gene_table_results.csv")
 ```
 
 # Session Info {.unnumbered}

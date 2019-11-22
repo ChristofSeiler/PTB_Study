@@ -78,25 +78,23 @@ Then load Affymetrix CEL files. At this stage, Bioconductor will automatically d
 
 ```{r import_data}
 sample_table = read.csv("sample_table.csv")
+cel_filenames = paste0(as.character(sample_table$array_name),".CEL")
+sample_table %<>% mutate(
+  cel_filename = cel_filenames, 
+  sample_name = paste(sample_table$sample_id,
+                      sample_table$condition,
+                      sample_table$treatment,sep = "_")
+  )
+write_csv(sample_table, path = "sample_table_cel.csv")
 params$treatment
 sample_table %<>% filter(treatment == params$treatment)
 sample_table$time_to_delivery = sample_table$gestage_enroll - 
   sample_table$gestage_delivery
-sample_names = paste(sample_table$sample_id,
-                     sample_table$condition,
-                     sample_table$treatment,sep = "_")
 pd = as(sample_table, "AnnotatedDataFrame")
 cel_filenames = paste0(as.character(sample_table$array_name),".CEL")
 rawData = read.celfiles(cel_filenames, phenoData = pd, 
-                        sampleNames = sample_names)
+                        sampleNames = sample_table$sample_name)
 rawData
-```
-
-Export sample table.
-
-```{r export_sample_table}
-current_filename = strsplit(knitr::current_input(), "\\.")[[1]][1]
-write_csv(sample_table,path = paste0(current_filename, ".csv"))
 ```
 
 # Preprocessing
@@ -127,6 +125,15 @@ eset = ExpressionSet(assayData = exprs(eset)[keep_ids,],
                      annotation = annotation(eset))
 ```
 
+Write processed expressions to file for GEO upload.
+
+```{r geo_upload}
+geo_exprs_rma = exprs(eset)
+colnames(geo_exprs_rma) = pData(eset)$sample_name
+geo_exprs_rma %<>% as_tibble(rownames = "ID_REF")
+write_csv(geo_exprs_rma, path = paste0("time_to_delivery_rma_", params$treatment, ".csv"))
+```
+
 # Data Exploration
 
 PCA plot of normalized expressions.
@@ -141,9 +148,8 @@ sample_table = eset@phenoData@data
 asp_ratio = res_pca$sdev[2]^2/res_pca$sdev[1]^2
 autoplot(res_pca, data = sample_table, colour = 'treatment', 
          shape = 'condition', size = 3, asp = asp_ratio)
-sample_names = paste(sample_table$sample_id,
-                     sample_table$treatment,sep = "_")
-rownames(sample_table) = sample_names
+rownames(sample_table) = paste(sample_table$sample_id, 
+                               sample_table$treatment,sep = "_")
 autoplot(res_pca, data = sample_table, 
          shape = FALSE, label = TRUE, label.size = 3, asp = asp_ratio)
 ```
@@ -246,15 +252,19 @@ for(i in 1:length(gene_table_list)) {
 
 Write to text file.
 
-```{r write_genes}
+```{r write_processed_data}
 for(i in 1:length(gene_table_list)) {
-  file_name_results = paste0(names(gene_table_list)[i],"_results_",
-                             params$treatment,
-                             ".csv")
-  cat("writting:",file_name_results,"\n")
+  file_name_processed = paste0(
+    "time_to_delivery_",
+    names(gene_table_list)[i],
+    "_",
+    params$treatment,
+    ".csv"
+    )
+  cat("writting:", file_name_processed, "\n")
   gene_table_list[[i]] %>% 
     as_tibble() %>% 
-    write_csv(path = file_name_results)
+    write_csv(path = file_name_processed)
 }
 ```
 
