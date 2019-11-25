@@ -1,0 +1,125 @@
+---
+title: "Process Samples for GEO Upload"
+author:
+  name: Christof Seiler
+  affiliation: Department of Statistics, Stanford University
+output:
+  BiocStyle::pdf_document:
+    toc: TRUE
+    fig_width: 5
+    fig_height: 4
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Goal
+
+Process samples that have no sample information to be included in the main analysis. We need to do this because GEO requires all samples to be processed.
+
+# Prerequisites
+
+Install necessary packages from bioconductor repository. Run this code only once to install packages.
+
+```{r install_packages, warning=FALSE, message=FALSE}
+pkgs_needed = c("oligo","limma","hta20transcriptcluster.db","pd.hta.2.0",
+                "affycoretools","genefilter","MatchIt","optmatch","ggfortify",
+                "magrittr","statmod","readr","dplyr","readxl","stringr",
+                "tibble","ggrepel")
+letsinstall = setdiff(pkgs_needed, installed.packages()) 
+if (length(letsinstall) > 0) {
+  source("http://bioconductor.org/biocLite.R")
+  biocLite(letsinstall)
+}
+```
+
+Load packages.
+
+```{r load_packages, warning=FALSE, message=FALSE}
+library("oligo")
+library("limma")
+library("hta20transcriptcluster.db")
+library("affycoretools")
+library("genefilter")
+library("MatchIt")
+library("ggfortify")
+library("magrittr")
+library("statmod")
+library("readr")
+library("dplyr")
+library("readxl")
+library("stringr")
+library("tibble")
+library("ggrepel")
+```
+
+# Import Data
+
+Load Affymetrix CEL files. At this stage, Bioconductor will automatically download the necessary annotation packages and install them for us. Load samples with missing sample information.
+
+```{r read_celfiles}
+sample_table = tibble(
+  sample_name = c("4.1_Unkown_Mock",
+                  "18.2_Unkown_H1N1"),
+  file_name = c("Nicholas Bayless_US 4.1_(HTA-2_0).CEL",
+                "Nicholas Bayless_H1N1 18.2_(HTA-2_0).CEL"),
+  treatment = c("Mock", "H1N1")
+)
+pd = as(as.data.frame(sample_table), "AnnotatedDataFrame")
+rawData = read.celfiles(sample_table$file_name,
+                        phenoData = pd,
+                        sampleNames = sample_table$sample_name)
+rawData
+```
+
+# Quality Control
+
+MA plots on the first three samples.
+
+```{r maplot, out.width="50%"}
+MAplot(rawData, pairs=TRUE)
+```
+
+# Preprocessing
+
+Background subtraction, normalization and summarization using median-polish.
+
+```{r normalizing}
+eset = rma(rawData)
+```
+
+Get rid of background probes and annotate using functions in `affycoretools` package.
+
+```{r affycoretools}
+dbGetQuery(db(pd.hta.2.0), "select * from type_dict;")
+table(getMainProbes("pd.hta.2.0")$type)
+eset = getMainProbes(eset)
+```
+
+Filter probes that we cannot map to symbols.
+
+```{r filter_probes}
+e2s = toTable(hta20transcriptclusterSYMBOL)
+prob_ids = rownames(exprs(eset))
+keep_ids = which(prob_ids %in% e2s$probe_id)
+eset = ExpressionSet(assayData = exprs(eset)[keep_ids,],
+                     phenoData = phenoData(eset),
+                     experimentData = experimentData(eset),
+                     annotation = annotation(eset))
+```
+
+Write processed expressions to file for GEO upload.
+
+```{r geo_upload}
+geo_exprs_rma = exprs(eset)
+colnames(geo_exprs_rma) = pData(eset)$sample_name
+geo_exprs_rma %<>% as_tibble(rownames = "ID_REF")
+write_csv(geo_exprs_rma, path = paste0("not_analyzed_rma.csv"))
+```
+
+# Session Info {.unnumbered}
+
+```{r session_info}
+sessionInfo()
+```
