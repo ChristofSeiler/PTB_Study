@@ -10,7 +10,7 @@ To run unstimulated analysis change treatment: "stim" to treatment: "unstim" in 
 
 ## Time to Delivery Analysis
 
-* [TimeToDelivery_Microarray.Rmd](TimeToDelivery_Separate_Microarray.Rmd)
+* [TimeToDelivery_Separate_Microarray.Rmd](TimeToDelivery_Separate_Microarray.Rmd)
 * [TimeToDelivery_qPCR.Rmd](TimeToDelivery_qPCR.Rmd)
 
 To run unstimulated analysis change treatment: "H1N1" to treatment: "Mock" in the header of the Rmd file.
