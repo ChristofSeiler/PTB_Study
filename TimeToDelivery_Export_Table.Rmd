@@ -1,0 +1,54 @@
+---
+title: "Export Gene Table to Word"
+author: "Christof Seiler"
+date: "January 2020"
+output: word_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Reviewer Request
+
+A reviewer requested the full table with all 170 genes at FDR = 0.1.
+
+From [limma's user guide](https://www.bioconductor.org/packages/release/bioc/vignettes/limma/inst/doc/usersguide.pdf):
+
+* `logFC`: log2-expression level
+* `AveExpr`: average log2-expression level for that gene across all the arrays and channels in the experiment
+* `t`: moderated t-statistic
+* `P.Value`: $p$-value
+* `adj.P.Value`:  $p$-value adjusted for multiple testing with the Benjamini and Hochberg method, also called $q$-values
+
+Meaning of $q$-values: If all genes with $q$-value below a threshold, say 0.05, are selected as differentially expressed, then the expected proportion of false discoveries in the selected group is controlled to be less than the threshold value, in this case 5%.
+
+```{r prepare_table, message=FALSE, warning=FALSE}
+library("readr")
+library("dplyr")
+library("magrittr")
+table = read_csv("time_to_delivery_time_to_delivery_H1N1.csv")
+table %<>% filter(adj.P.Val < 0.1)
+table %<>% arrange(P.Value)
+table %<>% select(symbol, logFC, AveExpr, P.Value, adj.P.Val)
+table %<>% mutate(
+  AveExpr = format(AveExpr, digits = 2),
+  logFC = format(logFC, digits = 1), 
+  P.Value = format(P.Value, digits = 1, scientific = TRUE),
+  adj.P.Val = format(adj.P.Val, digits = 2)
+)
+table %<>% dplyr::rename(
+  `Gene symbol` = symbol,
+  `Average expression (log2)` = AveExpr,
+  `Coefficient (log2)` = logFC, 
+  `Unadjusted p-value` = P.Value,
+  `Adjusted p-value` = adj.P.Val
+  )
+```
+
+```{r write_table}
+knitr::kable(
+  table, align = "lrrrr", 
+  caption = "Table 2. Differentially expressed genes in stimulated samples for time to deliver term. We included the following covariates in the linear model: intercept, time to delivery, and gestational age at birth. In the table, we show the top 170 genes for the time to delivery term. See Figure 2 for a full network analysis on all genes. The full table is in the supplementary material."
+)
+```
