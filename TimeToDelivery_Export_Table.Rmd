@@ -52,3 +52,9 @@ knitr::kable(
   caption = "Table 2. Differentially expressed genes in stimulated samples for time to deliver term. We included the following covariates in the linear model: intercept, time to delivery, and gestational age at birth. In the table, we show the top 170 genes for the time to delivery term. See Figure 2 for a full network analysis on all genes. The full table is in the supplementary material."
 )
 ```
+
+# Session Info {.unnumbered}
+
+```{r session_info}
+sessionInfo()
+```

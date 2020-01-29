@@ -265,9 +265,11 @@ gmine_with_outlier = ggplot(tb_subset, aes(time_to_delivery, residual_expr,
   ylab("residual expression") +
   theme(legend.position = "bottom")
 gmine_with_outlier
+filename = paste0("robust_fit_IFNL_", params$treatment)
 ggsave(gmine_with_outlier, 
-       filename = paste0("robust_fit_IFNL_", params$treatment, ".png"),
+       filename = paste0(filename, ".png"),
        width = 3, height = 4, dpi = 600)
+save(gmine_with_outlier, file = paste0(filename, ".Rdata"))
 ```
 
 # Session Info {.unnumbered}

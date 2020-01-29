@@ -154,6 +154,17 @@ autoplot(res_pca, data = sample_table,
          shape = FALSE, label = TRUE, label.size = 3, asp = asp_ratio)
 ```
 
+Check for batch effects.
+
+```{r check_badge_effects, fig.width=7, fig.height=7, out.width="80%"}
+sample_table$run_batch %<>% as.factor()
+sample_table$run_day %<>% factor(levels(sample_table$run_day)[c(2:5,1,6)])
+autoplot(res_pca, data = sample_table, colour = 'run_day',
+         shape = 'condition', size = 3, asp = asp_ratio)
+autoplot(res_pca, data = sample_table, colour = 'run_batch',
+         shape = 'condition', size = 3, asp = asp_ratio)
+```
+
 # Differential Expression Analyses
 
 Use ``limma`` for linear models to assess difference in expression. Define design matrix.
@@ -372,10 +383,14 @@ plot_network = function(color_name) {
     theme_blank()
 }
 set.seed(0xdada)
-plot_network("t_statistic")
+network_t_statistic = plot_network("t_statistic")
+save(network_t_statistic, file = "network_t_statistic.Rdata")
+network_t_statistic
 ggsave(filename = "network_t_statistic.pdf", width = 10, height = 6)
 ggsave(filename = "network_t_statistic.png", width = 10, height = 6)
-plot_network("coefficient")
+network_log_coefficient = plot_network("coefficient")
+save(network_log_coefficient, file = "network_log_coefficient.Rdata")
+network_log_coefficient
 ggsave(filename = "network_log_coefficient.pdf", width = 10, height = 6)
 ggsave(filename = "network_log_coefficient.png", width = 10, height = 6)
 ```
