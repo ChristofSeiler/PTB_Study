@@ -29,7 +29,7 @@ Install necessary packages from bioconductor repository. Run this code only once
 pkgs_needed = c("oligo","limma","hta20transcriptcluster.db","pd.hta.2.0",
                 "affycoretools","genefilter","MatchIt","optmatch","ggfortify",
                 "magrittr","statmod","readr","dplyr","readxl","stringr",
-                "tibble","ggrepel","tidyr")
+                "tibble","ggrepel","tidyr","locfdr")
 letsinstall = setdiff(pkgs_needed, installed.packages()) 
 if (length(letsinstall) > 0) {
   source("http://bioconductor.org/biocLite.R")
@@ -56,6 +56,7 @@ library("stringr")
 library("tibble")
 library("ggrepel")
 library("tidyr")
+library("locfdr")
 ```
 
 # Import Data
@@ -405,11 +406,11 @@ table(targets$pair, targets$`characteristics: run_day`)
 table(targets$pair, targets$`characteristics: run_batch`)
 ```
 
-## Power Analysis
+# Power Analysis
 
 Power analysis using local FDR methodology.
 
-```{r power_analysis, fig.width=9}
+```{r power_analysis, out.width="50%"}
 # fit model
 targets = eset@phenoData@data
 pair = factor(targets$pair)
@@ -422,8 +423,12 @@ t_stat = fit$coef[, "treatcase"] / fit$stdev.unscaled[, "treatcase"] / fit$sigma
 z_stat = qnorm(pt(t_stat, df = ncol(exprs(eset))-2))
 hist(t_stat, breaks = 100)
 hist(z_stat, breaks = 100)
+```
+
+```{r fig.width=8, fig.height=4, out.width="100%"}
 locfdr_res = locfdr(z_stat, df = 7, plot = 4)
 locfdr_res$Efdr
+locfdr_res = locfdr(z_stat, df = 7, plot = 1)
 ```
 
 Large values Efdr > 0.4 indicate low power (according to Seciton 3 of "Size, power and false discovery rates", Efron 2007).
