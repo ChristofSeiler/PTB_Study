@@ -29,7 +29,7 @@ Install necessary packages from bioconductor repository. Run this code only once
 pkgs_needed = c("oligo","limma","hta20transcriptcluster.db","pd.hta.2.0",
                 "affycoretools","genefilter","MatchIt","optmatch","ggfortify",
                 "magrittr","statmod","readr","dplyr","readxl","stringr",
-                "tibble","ggrepel")
+                "tibble","ggrepel","tidyr")
 letsinstall = setdiff(pkgs_needed, installed.packages()) 
 if (length(letsinstall) > 0) {
   source("http://bioconductor.org/biocLite.R")
@@ -55,6 +55,7 @@ library("readxl")
 library("stringr")
 library("tibble")
 library("ggrepel")
+library("tidyr")
 ```
 
 # Import Data
@@ -233,8 +234,9 @@ rownames(sample_table_annotated) = paste0(sample_table_annotated$pair,
                                           sample_table_annotated$sample_id)
 autoplot(res_pca, 
          data = sample_table_annotated, 
-         shape = FALSE, 
+         shape = "ptb_case", 
          colour = "pair",
+         size = 3,
          label = TRUE,
          asp = asp_ratio)
 ```
@@ -349,6 +351,82 @@ ggplot(gene_table, aes(logFC, -log10(P.Value), color = show)) +
                  "Stimulated Samples"))
 ggsave(filename = paste0("log2_fc_",params$treatment,".png"))
 ```
+
+# Patient Variability
+
+Visualize the pair-to-pair variability.
+
+```{r pair_to_pair, out.width="50%"}
+# prepare tables
+targets = eset@phenoData@data
+targets %<>% mutate(id = 1:nrow(targets))
+GA_affy = read_csv("GA_affy.csv")
+GA_affy %<>% dplyr::filter(
+  `characteristics: treatment` == 
+    ifelse(params$treatment == "stim", yes = "H1N1", "Mock")
+  )
+GA_affy %<>% dplyr::rename(ptidno = `characteristics: ptidno`)
+targets %<>% left_join(GA_affy, by = "ptidno")
+tb_case = targets[targets$ptb_case == "case", ]
+tb_control = targets[targets$ptb_case == "control", ]
+tb = left_join(tb_control, tb_case, by = "pair", 
+               suffix = c(".control", ".case"))
+
+# take diff within pairs
+tb_exrs = exprs(eset)
+X = tb_exrs[ ,tb$id.control]
+Y = tb_exrs[ ,tb$id.case]
+D = Y - X
+
+# implement my own paired t-test
+t_stat = apply(D, MARGIN = 1, 
+               function(x) t.test(x)$statistic)
+hist(t_stat, breaks = 100)
+```
+
+```{r plot_pair_to_pair, fig.width=8, fig.height=4, out.width="100%"}
+# plot
+tb_D = D %>% as_tibble %>% mutate(gene_id = 1:nrow(D))
+tb_D %<>% gather(pair, value, -gene_id)
+tb_D$pair %<>% factor(levels = sort(unique(as.integer(tb_D$pair))))
+ggplot(tb_D, aes(value, group = pair)) + 
+  geom_density() +
+  xlim(c(-2, 2))
+ggplot(tb_D, aes(value)) + 
+  geom_density() +
+  facet_wrap(~pair) +
+  xlim(c(-2, 2))
+```
+
+The variability does not seem to be related to `run_day` and `run_batch`.
+
+```{r variability_batch_effects}
+table(targets$pair, targets$`characteristics: run_day`)
+table(targets$pair, targets$`characteristics: run_batch`)
+```
+
+## Power Analysis
+
+Power analysis using local FDR methodology.
+
+```{r power_analysis, fig.width=9}
+# fit model
+targets = eset@phenoData@data
+pair = factor(targets$pair)
+treat = factor(targets$ptb_case, levels = c("control","case"))
+design = model.matrix(~ treat + pair)
+fit = lmFit(eset, design)
+
+# ordinary t-statistic
+t_stat = fit$coef[, "treatcase"] / fit$stdev.unscaled[, "treatcase"] / fit$sigma
+z_stat = qnorm(pt(t_stat, df = ncol(exprs(eset))-2))
+hist(t_stat, breaks = 100)
+hist(z_stat, breaks = 100)
+locfdr_res = locfdr(z_stat, df = 7, plot = 4)
+locfdr_res$Efdr
+```
+
+Large values Efdr > 0.4 indicate low power (according to Seciton 3 of "Size, power and false discovery rates", Efron 2007).
 
 # Session Info {.unnumbered}
 
