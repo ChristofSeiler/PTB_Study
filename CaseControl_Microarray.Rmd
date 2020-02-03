@@ -332,7 +332,7 @@ gene_table %<>% mutate(
   show = ifelse(abs(logFC) > logfc_thres | pvalue_thres < -log10(P.Value),
                 "yes", "no")
 )
-ggplot(gene_table, aes(logFC, -log10(P.Value), color = show)) + 
+gvolcano = ggplot(gene_table, aes(logFC, -log10(P.Value), color = show)) + 
   geom_point() +
   geom_vline(xintercept = c(-logfc_thres,logfc_thres), linetype = 2) +
   geom_hline(yintercept = pvalue_thres, linetype = 2) +
@@ -343,14 +343,15 @@ ggplot(gene_table, aes(logFC, -log10(P.Value), color = show)) +
     box.padding = unit(0.35, "lines"),
     point.padding = unit(0.3, "lines")
   ) +
-  xlab("log2 fold change") +
-  ylab("-log10(p-value)") +
+  xlab("log2 fold change (up-regulated in preterm -->)") +
+  ylab("-log10 p-value") +
   theme(legend.position = "none") +
   scale_colour_manual(values = c("gray", "black")) +
   ggtitle(ifelse(params$treatment == "unstim", 
                  "Unstimulated Samples", 
                  "Stimulated Samples"))
-ggsave(filename = paste0("log2_fc_",params$treatment,".png"))
+gvolcano
+save(gvolcano, file = paste0("gvolcano_",params$treatment,".Rdata"))
 ```
 
 # Patient Variability

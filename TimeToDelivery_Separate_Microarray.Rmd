@@ -384,15 +384,13 @@ plot_network = function(color_name) {
 }
 set.seed(0xdada)
 network_t_statistic = plot_network("t_statistic")
-save(network_t_statistic, file = "network_t_statistic.Rdata")
+save(network_t_statistic, 
+     file = paste0("network_t_statistic_",params$treatment,".Rdata"))
 network_t_statistic
-ggsave(filename = "network_t_statistic.pdf", width = 10, height = 6)
-ggsave(filename = "network_t_statistic.png", width = 10, height = 6)
 network_log_coefficient = plot_network("coefficient")
-save(network_log_coefficient, file = "network_log_coefficient.Rdata")
+save(network_log_coefficient, 
+     file = paste0("network_log_coefficient_",params$treatment,".Rdata"))
 network_log_coefficient
-ggsave(filename = "network_log_coefficient.pdf", width = 10, height = 6)
-ggsave(filename = "network_log_coefficient.png", width = 10, height = 6)
 ```
 
 ## Single Genes Expression

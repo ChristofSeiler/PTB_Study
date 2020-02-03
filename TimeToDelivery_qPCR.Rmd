@@ -170,8 +170,6 @@ gmine + geom_abline(intercept = coefs["(Intercept)"] +
                       mean_gestage*coefs["gestage_delivery"],
                     slope = coefs["time_to_delivery"],
                     color = color_condition, size = 1) + ggtitle("RGS13")
-ggsave(filename = "time_to_delivery_RGS13.png",
-       width = 4,height = 3,dpi = 600)
 ```
 
 ## IFNL
@@ -256,20 +254,16 @@ a = rlm_delivery$coefficients[[1]]
 b = rlm_delivery$coefficients[[2]]
 tb_subset %<>% mutate(y_hat = a + b*tb_subset$time_to_delivery)
 gmine_with_outlier = ggplot(tb_subset, aes(time_to_delivery, residual_expr, 
-                                           color = treatment)) +
+                                           color = ptb)) +
   geom_abline(intercept = a, slope = b, color = color_condition, size = 1) +
   geom_point() + 
-  scale_colour_manual(values = color_condition) +
-  ggtitle("IFNL (robust fit)") +
+  ggtitle(paste0("IFNL - ", params$treatment)) +
   xlab("time to delivery") +
   ylab("residual expression") +
   theme(legend.position = "bottom")
 gmine_with_outlier
-filename = paste0("robust_fit_IFNL_", params$treatment)
-ggsave(gmine_with_outlier, 
-       filename = paste0(filename, ".png"),
-       width = 3, height = 4, dpi = 600)
-save(gmine_with_outlier, file = paste0(filename, ".Rdata"))
+save(gmine_with_outlier, 
+     file = paste0("robust_fit_IFNL_", params$treatment,".Rdata"))
 ```
 
 # Session Info {.unnumbered}
