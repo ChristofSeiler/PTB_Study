@@ -434,6 +434,16 @@ locfdr_res = locfdr(z_stat, df = 7, plot = 1)
 
 Large values Efdr > 0.4 indicate low power (according to Seciton 3 of "Size, power and false discovery rates", Efron 2007).
 
+# Gene Set Enrichment Analysis
+
+Standard KEGG analysis.
+
+```{r gene_set_analysis}
+fit %<>% eBayes
+pathway_results = kegga(fit, species.KEGG = "hsa")
+topKEGG(pathway_results)
+```
+
 # Session Info {.unnumbered}
 
 ```{r session_info}
